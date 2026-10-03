@@ -1,0 +1,8 @@
+bin/
+obj/
+node_modules/
+tools/e2e/out/
+tools/e2e/test-results/
+dist/
+*.user
+.vs/

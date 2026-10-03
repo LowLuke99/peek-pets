@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>PeekPets.Companion</AssemblyName>
+    <RootNamespace>PeekPets.Companion</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>0.1.0</Version>
+    <Product>Peek Pets Companion</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
+  <!-- The phone web app ships next to the exe as wwwroot. In a dev checkout the
+       server prefers ../phone directly so edits show up on the phone instantly. -->
+  <ItemGroup>
+    <Content Include="..\phone\**\*" LinkBase="wwwroot" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\tools\Allow-Phone-Access.ps1" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PeekPets.Companion.Tests" />
+  </ItemGroup>
+
+</Project>
