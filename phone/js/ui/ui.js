@@ -59,6 +59,16 @@ export class UI {
     }
   }
 
+  setCoins(n) {
+    const el = document.getElementById('coinCount');
+    if (el && el.textContent !== String(n)) {
+      el.textContent = String(n);
+      el.parentElement?.classList.remove('is-pulse');
+      void el.offsetWidth;
+      el.parentElement?.classList.add('is-pulse');
+    }
+  }
+
   say(text, ms = 2400) {
     clearTimeout(this.bubbleTimer);
     this.bubble.textContent = text;

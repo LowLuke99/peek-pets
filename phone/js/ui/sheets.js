@@ -108,16 +108,15 @@ export function settingsSheet({ settings, onSetting, onPairTap, pcLabel, version
   );
 }
 
-export function petsSheet({ species, current, bonds, onPick, mountPreview }) {
+export function petsSheet({ species, current, onPick, mountPreview }) {
   const grid = h('div', { class: 'pets' });
   for (const s of species) {
     const canvas = h('canvas', { width: '240', height: '240', 'aria-hidden': 'true' });
-    const lvl = bonds[s.id]?.level;
     grid.append(h('button', {
       class: 'pet-card', type: 'button', 'aria-pressed': String(s.id === current), 'aria-label': `${s.name}: ${s.blurb}`,
       onclick: () => onPick(s.id),
     }, canvas, h('b', { text: s.name }), h('small', { text: s.blurb }),
-    s.isNew && !lvl ? h('span', { class: 'tag', text: 'NEW' }) : lvl ? h('small', { text: `Lv ${lvl}` }) : null));
+    s.isNew ? h('span', { class: 'tag', text: 'NEW' }) : null));
     mountPreview(canvas, s);
   }
   return h('div', {}, h('p', { class: 'lead', text: 'Everyone watches your cursor. Pick a friend.' }), grid);

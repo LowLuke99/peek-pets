@@ -4,7 +4,7 @@
 
 import { store } from '../store.js';
 import { $ } from '../ui/dom.js';
-import { wear, outfitFor, bestLevel, unlockedBetween } from '../core/wardrobe.js';
+import { wear, outfitFor, buy } from '../core/wardrobe.js';
 import { photoFileName } from '../core/photo.js';
 import { backdropById, backdropUrl, backdropLayout } from '../core/backdrops.js';
 import { pickLine } from '../behavior/lines.js';
@@ -22,6 +22,7 @@ export class PlayGlue {
   constructor(app) {
     this.app = app;
     this.outfits = store.get('outfits') ?? {};
+    this.owned = store.get('owned') ?? [];
     this.snacks = new SnackTime(app);
     this.motion = new MotionSense({ onShake: () => this.onShake() });
     this.photoAt = null;
@@ -40,7 +41,6 @@ export class PlayGlue {
       onPick: (id) => { this.playBar.hide(); if (id === 'ball') app.toggleBall(); else app.games.start(id); },
       onToggle: (open) => document.querySelector('[data-action="play"]')?.setAttribute('aria-expanded', String(open)),
     });
-    $('#styleBtn')?.addEventListener('click', () => app.openSheet('style'));
     this.backdropImg = null;
     this.outfitCache = null;
     window.addEventListener('resize', () => requestAnimationFrame(() => this.layoutBackdrop()));
@@ -88,7 +88,24 @@ export class PlayGlue {
     this.layout = l;
   }
 
+  /** Shop purchase (wardrobe item or backdrop). Returns true if bought. */
+  buy(entry) {
+    const app = this.app;
+    const r = buy(entry, this.owned, app.wallet);
+    if (r.error === 'coins') { app.ui.toast(`Need ${entry.price - app.wallet.coins} more 🪙. Play games to earn coins!`, 2600); return false; }
+    if (r.error) return false;
+    this.owned = r.owned;
+    store.set('owned', this.owned);
+    app.setWallet(r.wallet, { pulse: true });
+    app.sfx.play('tada');
+    haptic('success');
+    app.ui.toast(`Bought ${entry.name}!`);
+    return true;
+  }
+
   setBackdrop(id) {
+    const b = backdropById(id);
+    if (b.price > 0 && !this.owned.includes(b.id)) return;
     this.app.setSetting('backdrop', id);
     this.applyBackdrop();
   }
@@ -135,22 +152,13 @@ export class PlayGlue {
   action(name) {
     if (name === 'play') {
       if (this.app.ball.active) this.app.toggleBall(); // tap again to put the ball away
-      else this.playBar.toggle([{ id: 'ball', emoji: '⚽', name: 'Ball', label: 'Ball' }, ...GAMES.map((g) => ({ ...g, label: g.name.split(' ')[1] ?? g.name }))]);
+      else this.playBar.toggle([{ id: 'ball', emoji: '⚽', name: 'Ball', label: 'Ball' }, ...GAMES.map((g) => ({ ...g, label: g.short }))]);
       return true;
     }
     if (name !== 'snack') return false;
     this.app.sfx.unlock();
     this.snackBar.toggle(this.snacks.menu.map((s) => ({ ...s, mark: s.favourite ? '♥' : '', markLabel: 'favourite' })));
     return true;
-  }
-
-  onLevelUp(beforeBest, afterBest) {
-    const fresh = unlockedBetween(beforeBest, afterBest);
-    if (fresh.length) setTimeout(() => this.app.ui.toast(`New in your wardrobe: ${fresh.map((i) => i.name).join(', ')}!`, 3200), 1500);
-  }
-
-  bestLevel() {
-    return bestLevel(this.app.bonds);
   }
 
   async setMotion(on) {
@@ -177,7 +185,9 @@ export class PlayGlue {
     const app = this.app;
     return styleSheet({
       outfit: this.outfit,
-      bonds: app.bonds,
+      owned: this.owned,
+      coins: () => app.wallet.coins,
+      onBuy: (entry) => this.buy(entry),
       accent: app.species.palette.accent,
       petName: app.species.name,
       backdrop: app.settings.backdrop,
@@ -190,7 +200,7 @@ export class PlayGlue {
   wear(itemId) {
     const app = this.app;
     const before = this.outfit;
-    this.outfits = wear(this.outfits, app.species.id, itemId, app.bonds);
+    this.outfits = wear(this.outfits, app.species.id, itemId, this.owned);
     this.outfitCache = null;
     store.set('outfits', this.outfits);
     const now = this.outfit;

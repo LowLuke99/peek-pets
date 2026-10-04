@@ -9,7 +9,6 @@ import { pickLine } from '../behavior/lines.js';
 import { haptic } from '../native.js';
 
 const FLIGHT_S = 0.8;
-const BOND = { favourite: 3, yum: 2, spicy: 1, full: 0 };
 
 export class SnackTime {
   constructor(app) {
@@ -115,7 +114,7 @@ export class SnackTime {
       }
       this.say(t.outcome === 'favourite' ? 'snackFav' : 'snackYum', { snack: t.snack.name.toLowerCase() });
     }
-    app.addBond(BOND[t.outcome] ?? 1);
+    app.interact();
     app.send('snack');
   }
 

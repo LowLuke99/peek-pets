@@ -29,7 +29,7 @@ const waitFor = (fn, arg, timeout = 8000) => page.waitForFunction(fn, arg, { tim
 
 // ---- menu
 await page.click('[data-action="play"]');
-check('Play opens the games menu (ball + 2 games)', (await page.locator('#playbar .snack').count()) === 3);
+check('Play opens the games menu (ball + 3 games)', (await page.locator('#playbar .snack').count()) === 4);
 await page.screenshot({ path: join(OUT, 'menu.png') });
 
 // ---- Treat Catch
@@ -52,7 +52,7 @@ check('catching a star scores 3', await app(() => window.peek.games.game.state.s
 await app(() => { const g = window.peek.games.game; g.state = { ...g.state, time: 29.9 }; });
 await waitFor(() => !document.querySelector('#gameover').hidden);
 const over = await app(() => ({ text: document.querySelector('#gameover').textContent, best: JSON.parse(localStorage.getItem('peekpets.gameBest')).catch, active: window.peek.games.active }));
-check('round ends with a results card and a saved best', !over.active && /points/.test(over.text) && over.best >= 3, JSON.stringify(over));
+check('round ends with results, coins + XP, and a saved best', !over.active && /points/.test(over.text) && /🪙/.test(over.text) && /XP/.test(over.text) && over.best >= 3, JSON.stringify(over));
 await page.screenshot({ path: join(OUT, 'catch-over.png') });
 
 // ---- Cup Shuffle
@@ -87,6 +87,21 @@ await waitFor(() => !document.querySelector('#gameover').hidden);
 const cupsOver = await app(() => document.querySelector('#gameover').textContent);
 check('a wrong pick ends the game: 1 round', /1 round/.test(cupsOver), cupsOver);
 await page.screenshot({ path: join(OUT, 'cups-over.png') });
+
+// ---- Bubble Pop
+await page.click('#gameover .btn--ghost');
+await app(() => window.peek.games.start('pop'));
+await waitFor(() => window.peek.games.game.state.bubbles.some((b) => b.y < -0.6));
+const target = await app(() => {
+  const g = window.peek.games.game, s = g.state;
+  const b = s.bubbles.filter((x) => x.kind !== 'rain').sort((a, c) => a.y - c.y)[0];
+  return b ? window.peek.renderer.toScreen(b.x + Math.sin(s.time * 2.2 + b.phase) * 0.05, b.y) : null;
+});
+if (target) await page.mouse.click(target.x, target.y);
+await page.screenshot({ path: join(OUT, 'pop.png') });
+check('Bubble Pop: tapping a bubble pops it', await app(() => window.peek.games.game?.state.pops >= 1));
+await app(() => { const g = window.peek.games.game; g.state = { ...g.state, time: 29.95 }; });
+check('Bubble Pop pays out at the end', await waitFor(() => !document.querySelector('#gameover').hidden && /🪙/.test(document.querySelector('#gameover').textContent)));
 
 check('no page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

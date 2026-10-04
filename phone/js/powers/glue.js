@@ -150,7 +150,7 @@ export class PowerGlue {
     setTimeout(() => app.rig.hopUp(0.7), 520);
     app.particles.burst('confetti', top.x, top.y, confetti, { speed: 1.5, spread: 2.2 });
     app.sfx.play(sound);
-    app.addBond(1);
+    app.interact();
   }
 
   onCardAction(card, action) {

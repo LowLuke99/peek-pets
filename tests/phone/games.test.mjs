@@ -81,3 +81,32 @@ test('cups: later levels are faster with more swaps; the pet stops peeking after
   assert.equal(moving.length, 2);
   assert.ok(moving.every((c) => c.x > Math.min(CUPS.slotX[x], CUPS.slotX[y]) - 1e-9 && c.x < Math.max(CUPS.slotX[x], CUPS.slotX[y]) + 1e-9));
 });
+
+import { newPop, stepPop, tapPop, POP, bubbleX } from '../../phone/js/games/pop.js';
+
+test('pop: bubbles rise, taps pop them for points, rain clouds cost points (never below 0)', () => {
+  let s = newPop();
+  s = stepPop(s, 0.25, seq(0.5, 0.5, 0.5, 0.5, 0.5)).state; // spawns a treat bubble
+  assert.equal(s.bubbles.length, 1);
+  const b = s.bubbles[0];
+  assert.ok(b.y < POP.startY, 'rising');
+  const hit = tapPop(s, { x: bubbleX(b, s.time), y: b.y });
+  assert.equal(hit.event.type, 'pop');
+  assert.equal(hit.state.score, 1);
+  assert.equal(hit.state.bubbles.length, 0);
+  assert.equal(tapPop(s, { x: 5, y: 5 }).event, null, 'missing does nothing');
+  const rain = { ...s, score: 1, bubbles: [{ ...b, kind: 'rain' }] };
+  const wet = tapPop(rain, { x: bubbleX(b, s.time), y: b.y });
+  assert.equal(wet.event.type, 'rain');
+  assert.equal(wet.state.score, 0);
+  const gold = tapPop({ ...s, bubbles: [{ ...b, kind: 'gold' }] }, { x: bubbleX(b, s.time), y: b.y });
+  assert.equal(gold.state.score, 3);
+});
+
+test('pop: bubbles that float away are dropped; the round ends on time', () => {
+  let s = { ...newPop(), spawnIn: 99, bubbles: [{ id: 1, kind: 'treat', x: 0, y: POP.goneY + 0.01, vy: -1, phase: 0 }] };
+  s = stepPop(s, 0.1).state;
+  assert.equal(s.bubbles.length, 0);
+  const end = stepPop({ ...newPop(), time: POP.seconds - 0.01, spawnIn: 99 }, 0.05);
+  assert.ok(end.state.over && end.events[0].type === 'over');
+});

@@ -8,13 +8,15 @@ import { h, $ } from '../ui/dom.js';
 import { haptic } from '../native.js';
 import { CatchGame } from './catchGame.js';
 import { CupsGame } from './cupsGame.js';
+import { PopGame } from './popGame.js';
 
 export const GAMES = Object.freeze([
-  { id: 'catch', name: 'Treat Catch', emoji: '🍓', blurb: 'Slide to catch treats. Dodge the chilies!' },
-  { id: 'cups', name: 'Cup Shuffle', emoji: '🥤', blurb: 'Find the treat. Your pet peeks… at first.' },
+  { id: 'catch', name: 'Treat Catch', short: 'Catch', emoji: '🍓', blurb: 'Slide to catch treats. Dodge the chilies!' },
+  { id: 'cups', name: 'Cup Shuffle', short: 'Cups', emoji: '🥤', blurb: 'Find the treat. Your pet peeks… at first.' },
+  { id: 'pop', name: 'Bubble Pop', short: 'Bubbles', emoji: '🫧', blurb: 'Pop the treat bubbles. Not the rain clouds!' },
 ]);
 
-const MAKERS = { catch: (host) => new CatchGame(host), cups: (host) => new CupsGame(host) };
+const MAKERS = { catch: (host) => new CatchGame(host), cups: (host) => new CupsGame(host), pop: (host) => new PopGame(host) };
 
 export class GameHost {
   constructor(app) {
@@ -86,8 +88,8 @@ export class GameHost {
     $('#gameInfo').textContent = info.info;
   }
 
-  /** Called by a game when the round is over. */
-  finish(score, { unit = 'points', reward = 0 } = {}) {
+  /** Called by a game when the round is over: pays coins + XP, records the best, shows results. */
+  finish(score, { unit = 'points' } = {}) {
     const app = this.app;
     const id = this.gameId;
     const game = GAMES.find((g) => g.id === id);
@@ -98,7 +100,8 @@ export class GameHost {
       store.set('gameBest', this.best);
     }
     this.stop();
-    if (reward > 0) app.addBond(reward);
+    const earned = app.rewardGame(id, score);
+    this.onFinished?.(id, score);
     const top = app.headStage();
     if (record && score > 0) {
       app.particles.burst('confetti', top.x, top.y, 28, { speed: 1.7, spread: 2.6 });
@@ -112,6 +115,7 @@ export class GameHost {
       h('p', { class: 'gameover__title', text: `${game?.emoji ?? '🎮'} ${game?.name ?? 'Game'}` }),
       h('p', { class: 'gameover__score', text: `${score} ${unit}` }),
       h('p', { class: 'gameover__best', text: record && score > 0 ? '🏆 New best!' : `Best: ${Math.max(prev, score)} ${unit}` }),
+      h('p', { class: 'gameover__earned', text: `+${earned.coins} 🪙   +${earned.xp} XP${earned.daily ? '   (daily bonus!)' : ''}` }),
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn', type: 'button', text: 'Play again', 'data-game-again': id, onclick: () => this.start(id) }),
         h('button', { class: 'btn btn--ghost', type: 'button', text: 'Done', onclick: () => { this.card.hidden = true; } }),

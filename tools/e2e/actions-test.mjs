@@ -36,17 +36,7 @@ check('ball has physics (falls / bounces)', gazeSrc.y > -3, JSON.stringify(gazeS
 await page.click('[data-action="play"]');
 check('Play toggles the ball off', !(await page.evaluate(() => window.peek.ball.active)));
 
-await page.click('[data-action="cheer"]');
-await sleep(250);
-check('Cheer → joy + confetti', (await page.evaluate(() => [window.peek.emotion, window.peek.particles.list.length])).join() .startsWith('joy'));
-await page.screenshot({ path: join(OUT, 'cheer.png') });
-
-await page.click('[data-action="dance"]');
-await sleep(900);
-check('Dance → dancing', await page.evaluate(() => window.peek.rig.dancing));
-await page.screenshot({ path: join(OUT, 'dance.png') });
-await sleep(6600);
-check('Dance ends by itself', !(await page.evaluate(() => window.peek.rig.dancing)));
+check('the dock is Play, Snack, Shop, Friends, Nap', (await page.$$eval('.dock__btn', (b) => b.map((x) => x.dataset.action))).join() === 'play,snack,shop,friends,nap');
 
 await page.click('[data-action="nap"]');
 await sleep(1500);
@@ -73,8 +63,8 @@ for (const id of ids) {
   await sleep(250);
 }
 check('all pets switch cleanly', errors.length === 0, `${ids.length} pets`);
-const hearts = await page.evaluate(() => window.peek.bonds);
-check('bond hearts were earned', Object.values(hearts).some((b) => b.hearts > 0), JSON.stringify(hearts));
+const xp = await page.evaluate(() => window.peek.wallet.xp);
+check('petting earned a little XP (cooldown, not spam)', xp >= 1 && xp <= 3, String(xp));
 check('no page errors', errors.length === 0, errors.join(' | '));
 await browser.close();
 console.log(`${results.filter(Boolean).length}/${results.length} passed`);

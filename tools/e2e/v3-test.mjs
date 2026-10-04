@@ -26,16 +26,21 @@ await page.addInitScript(() => {
   localStorage.clear();
   localStorage.setItem('peekpets.seenPair', 'true');
   localStorage.setItem('peekpets.settings', JSON.stringify({ look: 'classic' }));
+  localStorage.setItem('peekpets.wallet', JSON.stringify({ coins: 500, xp: 0, lastDaily: null, lastInteract: 0 }));
 });
 await page.goto(base);
 await page.waitForFunction(() => window.peek?.pose);
 const app = (fn, arg) => page.evaluate(fn, arg);
 
 // ---- wardrobe
-await page.click('#styleBtn');
+await page.click('[data-action="shop"]');
 await page.waitForSelector('[data-item="party"]');
-check('Style sheet opens with the wardrobe', (await page.locator('.wear').count()) === 8);
-check('level-1 pet: party hat is locked', await page.locator('[data-item="party"]').isDisabled());
+check('Shop opens with the wardrobe', (await page.locator('.wear').count()) === 14);
+check('unowned items show a price', await page.locator('[data-item="party"] .wear__price').isVisible());
+await page.click('[data-item="party"]');
+const bought = await app(() => ({ coins: window.peek.wallet.coins, owned: JSON.parse(localStorage.getItem('peekpets.owned')), head: window.peek.play.outfit.head }));
+check('buying the party hat spends coins and puts it on', bought.coins === 460 && bought.owned.includes('party') && bought.head === 'party', JSON.stringify(bought));
+await page.click('[data-item="party"]');
 await page.click('[data-item="bow"]');
 check('wearing the bow', (await app(() => window.peek.play.outfit.head)) === 'bow');
 await page.click('[data-item="bow"]');
@@ -59,13 +64,12 @@ await sleep(400);
 // ---- snacks
 await page.click('[data-action="snack"]');
 check('snack bar opens with 5 treats', (await page.locator('#snackbar .snack').count()) === 5);
-const bondBefore = await app(() => window.peek.bond.hearts);
 await page.click('[data-choice="onigiri"]');
 check('snack bar closes after picking', await page.locator('#snackbar').isHidden());
 check('the pet watches the treat fly in', await app(() => window.peek.play.snacks.active));
 await waitFor(() => window.peek.rig.acts.chew && window.peek.rig.t < window.peek.rig.acts.chew.until);
-const fed = await app(() => ({ eaten: JSON.parse(localStorage.getItem('peekpets.snacks')).mochi.length, chewing: Boolean(window.peek.rig.acts.chew), hearts: window.peek.bond.hearts, fav: JSON.parse(localStorage.getItem('peekpets.snackFavs') ?? '{}').mochi }));
-check('favourite eaten: chews, +3 hearts, favourite discovered', fed.eaten === 1 && fed.chewing && fed.hearts - bondBefore >= 3 && fed.fav === 'onigiri', JSON.stringify(fed));
+const fed = await app(() => ({ eaten: JSON.parse(localStorage.getItem('peekpets.snacks')).mochi.length, chewing: Boolean(window.peek.rig.acts.chew), fav: JSON.parse(localStorage.getItem('peekpets.snackFavs') ?? '{}').mochi }));
+check('favourite eaten: chews, favourite discovered', fed.eaten === 1 && fed.chewing && fed.fav === 'onigiri', JSON.stringify(fed));
 await page.screenshot({ path: join(OUT, 'snack-chew.png') });
 for (let i = 0; i < 3; i++) {
   await waitFor(() => !window.peek.play.snacks.active);

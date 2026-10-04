@@ -52,7 +52,7 @@ export class CatchGame {
         haptic('warning');
         app.ui.say('SPICY!!', 900);
       } else if (e.type === 'over') {
-        this.host.finish(this.state.score, { unit: 'points', reward: Math.min(6, Math.floor(this.state.score / 5)) });
+        this.host.finish(this.state.score, { unit: 'points' });
         return;
       }
     }

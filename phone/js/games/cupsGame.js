@@ -84,7 +84,7 @@ export class CupsGame {
       this.level += 1;
       this.newRound();
     } else {
-      this.host.finish(this.level - 1, { unit: this.level - 1 === 1 ? 'round' : 'rounds', reward: Math.min(6, this.level - 1) });
+      this.host.finish(this.level - 1, { unit: this.level - 1 === 1 ? 'round' : 'rounds' });
     }
   }
 

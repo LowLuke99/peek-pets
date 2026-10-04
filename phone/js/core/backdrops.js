@@ -1,15 +1,16 @@
 // Backdrops: painted scenes behind the pet (made with Kling), or the pet's own colours.
+// Bought in the Shop with coins (the first two are free).
 // `floor` = how far down the image (0..1) its empty floor spot sits, so the scene can
 // be positioned with the spot under the pet.
 
 export const BACKDROPS = Object.freeze([
-  { id: 'none', name: 'Pet colours' },
-  { id: 'bedroom', name: 'Cosy room', floor: 0.86 },
-  { id: 'beach', name: 'Sunset beach', floor: 0.86 },
-  { id: 'forest', name: 'Forest', floor: 0.8 },
-  { id: 'space', name: 'Space station', floor: 0.86 },
-  { id: 'cabin', name: 'Snowy cabin', floor: 0.88 },
-  { id: 'candy', name: 'Candy clouds', floor: 0.82 },
+  { id: 'none', name: 'Pet colours', price: 0 },
+  { id: 'bedroom', name: 'Cosy room', floor: 0.86, price: 0 },
+  { id: 'beach', name: 'Sunset beach', floor: 0.86, price: 60 },
+  { id: 'forest', name: 'Forest', floor: 0.8, price: 60 },
+  { id: 'space', name: 'Space station', floor: 0.86, price: 120 },
+  { id: 'cabin', name: 'Snowy cabin', floor: 0.88, price: 80 },
+  { id: 'candy', name: 'Candy clouds', floor: 0.82, price: 80 },
 ].map((b) => Object.freeze(b)));
 
 export const backdropById = (id) => BACKDROPS.find((b) => b.id === id) ?? BACKDROPS[0];

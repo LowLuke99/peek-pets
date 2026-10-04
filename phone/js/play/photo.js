@@ -66,7 +66,7 @@ export function composePhoto(o) {
   ctx.fillText(o.name, BORDER + 8, y + 118);
   ctx.font = '700 38px Nunito, ui-rounded, system-ui, sans-serif';
   ctx.fillStyle = '#8A6A60';
-  ctx.fillText(`Bond level ${o.level} · ${photoDate(o.date ?? new Date())}`, BORDER + 10, y + 178);
+  ctx.fillText(`Level ${o.level} · ${photoDate(o.date ?? new Date())}`, BORDER + 10, y + 178);
   heart(ctx, W - BORDER - 70, y + 100, 34, o.palette.accent);
   ctx.font = '800 26px Nunito, ui-rounded, system-ui, sans-serif';
   ctx.fillStyle = '#B49A90';

@@ -12,7 +12,7 @@ import { pairCodeFromHash } from './core/protocol.js';
 import { cursorToGaze, pointToGaze, predict } from './core/gaze.js';
 import { CursorTracker, DemoCursor } from './core/cursor.js';
 import { initialMood, moodReduce, moodTick, currentEmotion } from './core/mood.js';
-import { addHearts, levelFor } from './core/bond.js';
+import { newWallet, levelInfo, interactXp, gameReward } from './core/economy.js';
 import { clamp } from './core/spring.js';
 import { PetRig } from './pet/rig.js';
 import { Renderer } from './pet/renderer.js';
@@ -47,7 +47,8 @@ export class App {
     this.awake = new KeepAwake();
     this.previews = new Previews();
     this.mood = initialMood(Date.now());
-    this.bonds = store.get('bonds') ?? {};
+    this.bonds = store.get('bonds') ?? {}; // v1-v3 per-pet hearts: only used to seed XP
+    this.wallet = store.get('wallet') ?? newWallet(this.bonds);
     this.facts = {};
     this.aspect = 16 / 9;
     this.touchLook = null;
@@ -355,24 +356,36 @@ export class App {
     return { x: c.x, y: c.y - this.species.hit.ry };
   }
 
+  /** Your player level (from XP). */
   get bond() {
-    return this.bonds[this.species.id] ?? { hearts: 0, level: 1 };
+    return { level: levelInfo(this.wallet.xp).level };
   }
 
-  addBond(amount) {
-    const bestBefore = this.play.bestLevel();
-    const next = addHearts(this.bond, amount);
-    this.bonds = { ...this.bonds, [this.species.id]: { hearts: next.hearts, level: next.level } };
-    clearTimeout(this.bondSave);
-    this.bondSave = setTimeout(() => store.set('bonds', this.bonds), 800);
-    this.ui.setBond(levelFor(next.hearts).progress, next.level, amount >= 1);
-    if (next.leveledUp) {
-      this.showLine('levelup', { level: next.level });
+  /** Petting, tapping, hugging…: at most 1 XP per cooldown, so spamming earns nothing. */
+  interact() {
+    const r = interactXp(this.wallet, Date.now());
+    if (r.gained) this.setWallet(r.wallet, { pulse: true });
+  }
+
+  /** Games pay coins + XP. Returns what was earned (for the results card). */
+  rewardGame(game, score) {
+    const r = gameReward(this.wallet, game, score, Date.now());
+    this.setWallet(r.wallet, { pulse: true, leveledUp: r.leveledUp });
+    return r;
+  }
+
+  setWallet(wallet, { pulse = false, leveledUp = false } = {}) {
+    this.wallet = wallet;
+    store.set('wallet', wallet);
+    const info = levelInfo(wallet.xp);
+    this.ui.setBond(info.progress, info.level, pulse);
+    this.ui.setCoins(wallet.coins);
+    if (leveledUp) {
+      this.showLine('levelup', { level: info.level });
       this.sfx.play('level');
       const top = this.headStage();
       this.particles.burst('confetti', top.x, top.y, 26, { speed: 1.6, spread: 2.4 });
       this.rig.hopUp(1);
-      this.play.onLevelUp(bestBefore, this.play.bestLevel());
     }
   }
 
@@ -381,26 +394,8 @@ export class App {
     if (this.play.action(name)) return;
     const top = this.headStage();
     switch (name) {
-      case 'cheer':
-        this.ui.flash(btn);
-        this.react({ type: 'cheer' });
-        this.rig.hopUp(1);
-        setTimeout(() => this.rig.hopUp(0.8), 520);
-        this.particles.burst('confetti', top.x, top.y, 22, { speed: 1.5, spread: 2.2 });
-        this.particles.burst('sparkle', top.x, top.y + 0.1, 6, { speed: 0.9, spread: 3 });
-        this.sfx.play('giggle');
-        this.addBond(2);
-        this.send('cheer');
-        break;
-      case 'dance':
-        this.ui.flash(btn);
-        if (this.rig.dancing) { this.rig.stopDance(); break; }
-        this.rig.startDance(7000, 112);
-        this.react({ type: 'dance', ms: 7000 });
-        this.sfx.play('dance');
-        this.addBond(2);
-        this.send('dance');
-        break;
+      case 'shop': this.openSheet('style'); break;
+      case 'friends': this.openSheet('friends'); break;
       case 'nap': {
         const on = !this.mood.napping;
         this.react({ type: 'nap', on });
@@ -451,7 +446,7 @@ export class App {
         const top = this.headStage();
         this.particles.burst('sparkle', top.x, top.y + 0.1, 7, { speed: 1, spread: 3 });
         this.sfx.play('giggle');
-        this.addBond(1);
+        this.interact();
         this.syncNapUi();
       },
       onLongPress: () => {
@@ -461,7 +456,7 @@ export class App {
         const top = this.headStage();
         this.particles.burst('heart', top.x, top.y + 0.05, 5, { speed: 0.7, spread: 1.8 });
         this.sfx.play('pop');
-        this.addBond(3);
+        this.interact();
         this.send('hug');
         this.syncNapUi();
       },
@@ -497,7 +492,7 @@ export class App {
       if (Math.random() < 0.6) this.particles.emit('heart', top.x + (Math.random() - 0.5) * 0.3, top.y + 0.05, { speed: 0.6 });
       this.send('boop');
     }
-    this.addBond(1);
+    this.interact();
     this.syncNapUi();
   }
 
@@ -510,7 +505,7 @@ export class App {
     const top = this.headStage();
     this.particles.emit('heart', top.x + (Math.random() - 0.5) * 0.4, top.y + 0.08, { speed: 0.55 });
     if (Math.random() < 0.3) this.sfx.play('pop');
-    this.addBond(0.5);
+    this.interact();
     this.send('pet');
     this.syncNapUi();
   }
@@ -526,7 +521,7 @@ export class App {
         this.react({ type: 'ball-hit' });
         this.particles.burst('sparkle', this.ball.x, this.ball.y, 4, { speed: 0.8, spread: 3 });
         this.sfx.play('kick');
-        this.addBond(0.5);
+        this.interact();
       } else if (e === 'kick') {
         this.rig.hopUp(0.6);
         this.sfx.play('kick');
@@ -585,8 +580,9 @@ export class App {
     root.setProperty('--accent', p.accent);
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', p.bgA);
     this.previews.replaceAvatar($('#avatarCanvas'), this.species);
-    const b = this.bond;
-    this.ui.setBond(levelFor(b.hearts).progress, levelFor(b.hearts).level, false);
+    const info = levelInfo(this.wallet.xp);
+    this.ui.setBond(info.progress, info.level, false);
+    this.ui.setCoins(this.wallet.coins);
     if (!quiet) {
       this.rig.hopUp(0.9);
       this.react({ type: 'touch' });
@@ -620,7 +616,7 @@ export class App {
     this.sheetDispose?.();
     this.sheetDispose = null;
     if (kind === 'style') {
-      this.ui.openSheet('style', 'Style', this.play.styleSheet());
+      this.ui.openSheet('style', 'Shop', this.play.styleSheet());
       return;
     }
     if (kind === 'powers') {
@@ -667,7 +663,6 @@ export class App {
       this.ui.openSheet('pets', 'Your pets', petsSheet({
         species: SPECIES,
         current: this.species.id,
-        bonds: this.bonds,
         onPick: (id) => {
           this.settings = { ...this.settings, pet: id };
           saveSettings(this.settings);
