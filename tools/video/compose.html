@@ -108,7 +108,7 @@
     <div class="step" id="st1"><div class="num">2</div><div><b>Open the app → tap your PC</b><span>"Find your PC" lists it automatically</span></div></div>
     <div class="step" id="st2"><div class="num">3</div><div><b>Type the code it shows → linked!</b><span>Move your mouse: the eyes follow</span></div></div>
   </div>
-  <img class="abs" id="companion" src="../../docs/img/companion-window.png" alt="" style="left:560px;top:600px;width:470px;border-radius:14px;box-shadow:0 24px 60px rgba(80,30,20,0.3)">
+  <img class="abs" id="companion" src="../../docs/img/companion-window.png" alt="" style="left:150px;top:690px;width:440px;border-radius:14px;box-shadow:0 24px 60px rgba(80,30,20,0.3)">
 
   <!-- S5 Mac -->
   <div class="abs" id="s5" style="left:110px;top:90px;width:1000px">
@@ -180,12 +180,12 @@ function drawFrame(t) {
   set($('phone'), 1 - phoneOut, phoneOut * 260, (1 - phoneIn) * 600, 1 - phoneOut * 0.1);
 
   // ---- S1
-  const s1 = life(t, 0.25, 2.75);
+  const s1 = life(t, 0.25, 2.6);
   set($('s1'), s1, (1 - out((t - 0.25) / 0.7)) * -80, 0);
 
   // ---- S2 features list
-  const s2 = life(t, 2.45, 10.55);
-  set($('s2'), s2, (1 - out((t - 2.45) / 0.5)) * -60);
+  const s2 = life(t, 2.62, 10.4);
+  set($('s2'), s2, (1 - out((t - 2.62) / 0.5)) * -60);
   FEATS.forEach(([a, b], i) => {
     const el = $(`f${i}`);
     const on = t >= a && t < b;
@@ -198,10 +198,10 @@ function drawFrame(t) {
   });
 
   // ---- S3 PC side
-  const s3 = life(t, 10.35, 13.35);
-  set($('s3t'), s3, 0, (1 - out((t - 10.35) / 0.5)) * 30);
+  const s3 = life(t, 10.42, 13.15);
+  set($('s3t'), s3, 0, (1 - out((t - 10.42) / 0.5)) * 30);
   set($('desk'), s3, 0, (1 - out((t - 10.45) / 0.5)) * 40, 0.96 + 0.04 * out((t - 10.45) / 0.5));
-  set($('auto'), life(t, 11.6, 13.35), 0, (1 - out((t - 11.6) / 0.45)) * 30);
+  set($('auto'), life(t, 11.6, 13.15), 0, (1 - out((t - 11.6) / 0.45)) * 30);
   const u = clamp((t - 10.5) / 2.6);
   const cx = 160 + 640 * ease(u), cy = 420 - 230 * Math.sin(Math.PI * u) + 40 * Math.sin(u * 9);
   set($('cursor'), s3, cx, cy);
@@ -219,8 +219,8 @@ function drawFrame(t) {
   $('mochi').setAttribute('transform', `translate(${70},${(-110 + Math.sin(t * 8) * 4).toFixed(1)}) scale(${Math.max(0.01, pop).toFixed(3)})`);
 
   // ---- S4 setup
-  const s4 = life(t, 13.1, 16.75);
-  set($('s4'), s4, 0, (1 - out((t - 13.1) / 0.5)) * 30);
+  const s4 = life(t, 13.17, 16.5);
+  set($('s4'), s4, 0, (1 - out((t - 13.17) / 0.5)) * 30);
   const steps = [[13.3, 14.3], [14.3, 15.3], [15.3, 16.75]];
   steps.forEach(([a, b], i) => {
     const el = $(`st${i}`);

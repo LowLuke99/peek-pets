@@ -247,6 +247,10 @@ public partial class MainWindow : Window
         "cheer" => "cheering",
         "sleep" => "your pet dozed off",
         "wake" => "your pet woke up",
+        "snack" => "snack time!",
+        "outfit" => "your pet tried on a new outfit",
+        "photo" => "your pet posed for a photo",
+        "shake" => "the phone got shaken: dizzy pet",
         _ => petEvent,
     };
 
