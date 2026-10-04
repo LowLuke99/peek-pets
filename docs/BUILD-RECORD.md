@@ -1,5 +1,63 @@
 # Build record: Peek Pets
 
+## v4: games, coins & shop, friends & chat, App Store prep (2026-10-04, afternoon)
+
+*Your requests while at work: built-in games, XP from games (not from spamming the pet), a
+currency and customizables, friends with codes, chat, playing with friends, leaderboards,
+auto-allow for powers, a better find-cursor, new pets, images, and getting ready for the App
+Store. All built and tested; the chat server needs one deploy from you (below).*
+
+### Play
+| | |
+|---|---|
+| **Play menu** | Ball, **Treat Catch** (slide to catch falling treats, stars ×3, chilies cost a life), **Cup Shuffle** (find the treat; your pet *peeks* at the right cup for 3 rounds), **Bubble Pop** (tap treat bubbles, avoid rain clouds). 30-second rounds, best scores, results card. The pet shrinks to make room and reacts to everything. |
+| **Coins + XP** | Games pay coins (capped per round) and XP; first game each day +20 coins. Petting still gives XP, but at most 1 per 20 seconds, so spamming does nothing. One player level (shared by all pets) replaces the per-pet bond meter; old bond progress became starting XP. |
+| **Shop** | 14 wardrobe items (6 new: cat ears, halo, chef hat, pirate hat, flower crown, heart glasses) and 7 backdrops, bought with coins (a few free). |
+| **Dock** | Play · Snack · Shop · Friends · Nap (Cheer and Dance removed). |
+
+### Friends (server: `server/chat`, Cloudflare Worker + Durable Objects)
+Nickname only, 6-letter friend codes, requests (accept / no / block), chat with filtered
+text and **pet emotes your friend's pet acts out** (wave, hug, dance, cheer, snack, love),
+**challenges** ("Beat it!" starts that game and replies with your result), **leaderboards**
+(friends, plus an opt-in Everyone board), **Peek Bot** (code PEE-KBT) to try chat alone.
+Safety: filter (look-alike letters, l33t, spacing, starring) + links/emails/phone numbers
+masked, block & report everywhere (block keeps the evidence), moderator ban + report alerts,
+rate limits, 30-day messages, account deletion, single-use tickets for the live socket.
+A separate security review found 4 critical + 8 high issues in the first version; all fixed.
+
+### PC
+* **Powers auto-allow** paired phones (no Allow? pop-ups); clipboard reads and the mic still ask.
+* **Find cursor** spotlight that follows the pointer for 3.6 s.
+
+### App Store prep
+`docs/APP-STORE.md` (listing text, privacy answers, age rating, review notes),
+`PrivacyInfo.xcprivacy`, opaque icon, real launch screen, export-compliance key, six 6.9"
+screenshots (`docs/appstore/`), and the macOS CI checks all of that on every change.
+
+### Verified
+| Check | Result |
+|---|---|
+| Unit tests (`npm test`) | **102/102** (games, economy, shop, filter, chat rules, …) |
+| Companion (`dotnet test`) | 98/98 |
+| Chat server e2e (`cd server/chat && npm run dev`, then `npm run e2e`) | **48/48** |
+| Two phones through the server (`tools/e2e/friends-test.mjs`) | **16/16** |
+| Games / v3 / dock suites | 16/16 · 22/22 · 11/11 |
+| macOS CI (setup script, build, App Store checks) | pass |
+
+### You need to (once)
+1. `cd server/chat && npx wrangler login && npx wrangler secret put ADMIN_TOKEN && npm run deploy`
+   (free Cloudflare account). Until then Friends says "coming soon".
+2. Put a contact email in `server/chat/wrangler.toml` (`SUPPORT_EMAIL`) and deploy again.
+3. Apple Developer account, then follow `docs/APP-STORE.md`.
+
+### Open decisions
+1. Keep the Everyone leaderboard (opt-in) or make leaderboards friends-only?
+2. Coin prices and rewards are first guesses: tell me if things feel too cheap or too grindy.
+3. Real-time games with friends (both playing at once) would be the next big step; today
+   it's challenges (beat my score), which work without both being online.
+
+---
+
 ## v3: dress-up, snacks, backdrops, new pets, Mac setup (2026-10-04)
 
 *Built in one session while you were at work. Video: [media/v3-whats-new.mp4](media/v3-whats-new.mp4) (20 s).*

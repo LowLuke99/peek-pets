@@ -57,8 +57,8 @@ fine; the installed app encrypts everything. Remove the certificate any time in
 | Press and hold | hug |
 | Double-tap | hops for joy |
 | Drag a finger on the background | watches your finger |
-| **Play** | a ball to flick around: the pet tracks it and bonks it back |
-| **Cheer / Dance / Nap** | confetti, a little dance with a tune, lights-down nap |
+| **Play** | the ball, or a mini-game: **Treat Catch**, **Cup Shuffle** (your pet peeks!), **Bubble Pop**. Games pay **coins + XP** |
+| **Nap** | lights-down nap |
 
 ![Play, cheer, dance, nap](docs/img/actions.png)
 
@@ -66,7 +66,8 @@ fine; the installed app encrypts everything. Remove the certificate any time in
 | Close the PC app | looks around for it, then settles. Never sulks |
 | Avatar (top-left) | switch between 12 pets, each with its own bond level |
 | **Snack** | pick a treat: it arcs into the pet's mouth, chomp chomp. Every pet has a favourite; chili is a joke (except for Ember) |
-| **Style** (hanger, top bar) | wardrobe (8 hats & glasses, unlocked by bond), six painted **backdrops**, and **📸 photo mode** (a polaroid to save or share) |
+| **Shop** | spend coins on 14 hats & glasses and 7 painted **backdrops**; **📸 photo mode** (a polaroid to save or share) |
+| **Friends** | add friends with a 6-letter code, chat, send pet emotes their pet acts out, challenge them to beat your score, leaderboards. Try it alone with Peek Bot (PEE-KBT) |
 | Shake the phone | dizzy pet (Settings → **Shake & tilt**). Tilt it: the pet leans and the ball rolls downhill |
 
 The PC window also has **Say something**: type a line and the pet says it on the phone
@@ -96,6 +97,7 @@ The PC window also has **Say something**: type a line and the pet says it on the
 * Real iPhone app: [docs/NATIVE-APP.md](docs/NATIVE-APP.md) (Sideloadly or TestFlight from Windows).
 * **Have a Mac?** [docs/MAC-SETUP.md](docs/MAC-SETUP.md): clone, double-click `Set up on Mac.command`, press ▶ in Xcode.
 * Art: [docs/ART-PROMPTS.md](docs/ART-PROMPTS.md) is a ChatGPT/Kling prompt pack for more backdrops, pets and icons.
+* **App Store**: [docs/APP-STORE.md](docs/APP-STORE.md) (what's done, your steps, listing text). Friends server: [server/chat/README.md](server/chat/README.md).
 
 ## For developers
 ```
@@ -109,12 +111,16 @@ tools/e2e/         Playwright: live-test (real cursor → phone), app-mode-test,
 docs/              PROTOCOL.md, BUILD-RECORD.md, screenshots, recording
 ```
 ```
-npm test                                  # phone logic (80 tests)
+npm test                                  # phone logic (102 tests)
 dotnet test companion.tests               # companion (98 tests)
+(cd server/chat && npm run dev)           # local chat server on :8790, then: (cd server/chat && npm run e2e)  # 48 checks
 node tools/e2e/live-test.mjs chromium     # end-to-end with your real cursor (moves your mouse!)
 node tools/e2e/app-mode-test.mjs          # installable app + offline
 node tools/e2e/actions-test.mjs          # dock actions, toys, petting, all pets (needs companion on :8787)
-node tools/e2e/v3-test.mjs                # wardrobe, backdrops, snacks, shake & tilt, photo, new pets
+node tools/e2e/v3-test.mjs                # shop, backdrops, snacks, shake & tilt, photo, new pets
+node tools/e2e/games-test.mjs             # Treat Catch, Cup Shuffle, Bubble Pop, rewards
+node tools/e2e/friends-test.mjs           # two phones through the local chat server
+node tools/appstore/screenshots.mjs       # App Store screenshots → docs/appstore/
 node tools/video/film.mjs && node tools/video/render.mjs   # re-make the what's-new video
 powershell -File tools/publish.ps1        # standalone companion for a friend (no .NET needed)
 ```
