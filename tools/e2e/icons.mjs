@@ -1,5 +1,6 @@
-// Renders the app icons from the real pet drawing code (so the icon always matches
-// the pet): node icons.mjs  → phone/icons/icon-{180,192,512}.png
+// Renders the app icons from the real pet drawing code, in the clay (WebGL) look, so
+// the icon always matches the pet: node icons.mjs
+//   → phone/icons/icon-{180,192,512}.png and the iOS app icon (1024, no transparency)
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -19,14 +20,17 @@ const server = createServer(async (req, res) => {
   }
 }).listen(8799);
 
-const browser = await chromium.launch();
+const IOS_ICON = resolve(import.meta.dirname, '..', '..', 'app', 'ios', 'App', 'App', 'Assets.xcassets', 'AppIcon.appiconset', 'AppIcon-512@2x.png');
+const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
 const page = await browser.newPage();
 await page.goto('http://127.0.0.1:8799/blank'); // same-origin blank page for module imports
 await mkdir(join(PHONE, 'icons'), { recursive: true });
-for (const size of [180, 192, 512]) {
+for (const size of [180, 192, 512, 1024]) {
   const dataUrl = await page.evaluate(async (size) => {
     const { mochi } = await import('/js/pet/species/mochi.js');
     const { PetRig } = await import('/js/pet/rig.js');
+    const { GLStage } = await import('/js/gl/glstage.js');
+    const { PartBuilder } = await import('/js/gl/parts.js');
     const rig = new PetRig(() => 0.5);
     rig.nextBlink = 99;
     let pose;
@@ -45,14 +49,34 @@ for (const size of [180, 192, 512]) {
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, size, size);
     const S = size * 0.78;
-    ctx.setTransform(S, 0, 0, S, size / 2, size * 0.86);
-    ctx.fillStyle = 'rgba(120,50,40,0.18)';
-    ctx.beginPath(); ctx.ellipse(0, 0, 0.42, 0.06, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.translate(0, -mochi.groundY);
-    mochi.draw(ctx, { ...pose, x: 0, y: 0, rot: 0, sx: 1, sy: 1, hop: 0 });
+    const still = { ...pose, x: 0, y: 0, rot: 0, sx: 1, sy: 1, hop: 0 };
+    // Clay body on a GL canvas, composited under the 2D face (same as the app).
+    const glCanvas = document.createElement('canvas');
+    glCanvas.width = glCanvas.height = size;
+    const stage = new GLStage(glCanvas);
+    const base = [S, 0, 0, S, size / 2, size * 0.86];
+    if (stage.ok) {
+      const b = new PartBuilder().reset(base);
+      b.shadow({ x: 0, y: 0, rx: 0.44, ry: 0.08, strength: 0.28 });
+      b.translate(0, -mochi.groundY);
+      mochi.gl(b, still, {});
+      stage.clear();
+      stage.draw(b.parts);
+      ctx.drawImage(glCanvas, 0, 0);
+      ctx.setTransform(...base);
+      ctx.translate(0, -mochi.groundY);
+      mochi.drawFace(ctx, still, {});
+    } else {
+      ctx.setTransform(...base);
+      ctx.fillStyle = 'rgba(120,50,40,0.18)';
+      ctx.beginPath(); ctx.ellipse(0, 0, 0.42, 0.06, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.translate(0, -mochi.groundY);
+      mochi.draw(ctx, still);
+    }
     return c.toDataURL('image/png');
   }, size);
-  await writeFile(join(PHONE, 'icons', `icon-${size}.png`), Buffer.from(dataUrl.split(',')[1], 'base64'));
+  const png = Buffer.from(dataUrl.split(',')[1], 'base64');
+  await writeFile(size === 1024 ? IOS_ICON : join(PHONE, 'icons', `icon-${size}.png`), png);
   console.log('wrote icon', size);
 }
 await browser.close();

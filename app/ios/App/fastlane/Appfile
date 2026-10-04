@@ -1,0 +1,2 @@
+app_identifier("com.lowluke.peekpets")
+team_id(ENV["APPLE_TEAM_ID"])

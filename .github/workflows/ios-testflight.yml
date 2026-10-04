@@ -1,0 +1,33 @@
+# Signed build → TestFlight. Needs a PAID Apple Developer account and these repository
+# secrets (Settings → Secrets → Actions); see docs/NATIVE-APP.md:
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8_BASE64, APPLE_TEAM_ID
+# Manual only (macOS minutes are expensive).
+name: iOS TestFlight
+on:
+  workflow_dispatch:
+
+jobs:
+  testflight:
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - name: Check secrets are set
+        run: |
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64 APPLE_TEAM_ID; do
+            if [ -z "${!v}" ]; then echo "::error::Secret $v is not set (see docs/NATIVE-APP.md)"; exit 1; fi
+          done
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci && npm run sync
+        working-directory: app
+      - run: bundle install && bundle exec fastlane beta
+        working-directory: app/ios/App

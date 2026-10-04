@@ -221,3 +221,15 @@ test('expression blending moves toward target and is pure', () => {
   const done = blendExpression(from, to, 10);
   near(done.happy, 1, 1e-6);
 });
+
+test('native app understands pasted links, addresses and codes (LAN only)', async () => {
+  const { parsePairTarget } = await import('../../phone/js/core/protocol.js');
+  assert.deepEqual(parsePairTarget('http://10.0.0.206:8787/#pair=ABC234'), { host: '10.0.0.206:8787', code: 'ABC234' });
+  assert.deepEqual(parsePairTarget('192.168.1.20'), { host: '192.168.1.20:8787', code: null });
+  assert.deepEqual(parsePairTarget('luke-pc.local:9000'), { host: 'luke-pc.local:9000', code: null });
+  assert.deepEqual(parsePairTarget('abc-234'), { host: null, code: 'ABC234' });
+  assert.equal(parsePairTarget('https://evil.example/#pair=ABC234').host, null);
+  assert.equal(parsePairTarget('8.8.8.8').host, null);
+  assert.equal(parsePairTarget('10.0.0.999').host, null);
+  assert.equal(parsePairTarget('').host, null);
+});

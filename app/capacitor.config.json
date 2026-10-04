@@ -1,0 +1,13 @@
+{
+  "appId": "com.lowluke.peekpets",
+  "appName": "Peek Pets",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#FFF3EC",
+    "scheme": "Peek Pets"
+  },
+  "plugins": {
+    "LocalNotifications": { "iconColor": "#F2735F" }
+  }
+}

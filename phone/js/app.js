@@ -25,6 +25,8 @@ import { attachInput } from './input.js';
 import { KeepAwake } from './awake.js';
 import { PowerGlue } from './powers/glue.js';
 import { powersSheet } from './ui/powersSheet.js';
+import { nativePairSheet } from './ui/nativePair.js';
+import { isNative, discoverPcs, haptic } from './native.js';
 
 export const VERSION = '0.2.0';
 const BUBBLE_COOLDOWN_MS = 4500;
@@ -435,6 +437,7 @@ export class App {
       },
       onLongPress: () => {
         this.react({ type: 'hug' });
+        haptic('success');
         this.rig.boop(0.5);
         const top = this.headStage();
         this.particles.burst('heart', top.x, top.y + 0.05, 5, { speed: 0.7, spread: 1.8 });
@@ -468,6 +471,7 @@ export class App {
       this.sfx.play('ouch');
     } else {
       this.rig.boop(1);
+      haptic('soft');
       this.react({ type: 'tap' });
       this.sfx.play(this.emotion === 'happy' ? 'giggle' : 'boop');
       if (Math.random() < 0.6) this.particles.emit('heart', top.x + (Math.random() - 0.5) * 0.3, top.y + 0.05, { speed: 0.6 });
@@ -594,6 +598,16 @@ export class App {
       const sheet = powersSheet({ glue: this.glue, focus });
       this.ui.openSheet('powers', 'Powers', sheet.el);
       this.sheetDispose = sheet.dispose;
+      return;
+    }
+    if (kind === 'pair' && isNative()) {
+      this.ui.openSheet('pair', 'Find your PC', nativePairSheet({
+        error: this.link.info.authError,
+        lastHost: store.get('pcHost'),
+        discover: () => discoverPcs(),
+        onPair: (host, code) => { this.link.setHost(host); this.link.pairWithCode(code); this.ui.toast('Pairing…'); },
+        onDemo: () => { this.setSetting('demo', true); this.ui.closeSheet(); this.ui.toast('Demo cursor on. Pair any time from Settings.'); },
+      }));
       return;
     }
     if (kind === 'pair') {

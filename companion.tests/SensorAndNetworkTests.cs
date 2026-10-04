@@ -127,4 +127,15 @@ public sealed class WireFormatTests
         Assert.Equal(ok, PeekPets.Companion.Server.NetworkInfo.IsAllowedHost(host));
         Assert.True(PeekPets.Companion.Server.NetworkInfo.IsAllowedHost(Environment.MachineName));
     }
+
+    [Fact]
+    public void Bonjour_txt_record_carries_address_port_and_version_only()
+    {
+        var txt = PeekPets.Companion.Server.MdnsAdvertiser.TxtRecord("LUKE-PC",
+            [System.Net.IPAddress.Parse("10.0.0.206"), System.Net.IPAddress.Parse("fe80::1"), System.Net.IPAddress.Parse("192.168.1.5")], 8787, 8788, 1, "0.2.0");
+        Assert.Equal("10.0.0.206,192.168.1.5", txt["ip"]);
+        Assert.Equal("8787", txt["port"]);
+        Assert.Equal("8788", txt["sport"]);
+        Assert.Equal(["pc", "ip", "port", "sport", "proto", "ver"], txt.Keys);
+    }
 }

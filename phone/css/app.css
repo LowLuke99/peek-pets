@@ -591,3 +591,9 @@ body:has(.nudge:not([hidden])) .tray { opacity: 0; pointer-events: none; }
 /* Lower render layers (GL clay bodies, back props) never take touches. */
 .stage--layer { pointer-events: none; }
 .lead--warn { color: #A0582C; }
+
+/* Native app: pick your PC */
+.pcs { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.pc { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; padding: 10px 14px; border-radius: 16px; border: 2px solid transparent; background: #fff; box-shadow: 0 4px 14px rgba(122, 59, 42, 0.06); font-weight: 800; cursor: pointer; text-align: left; }
+.pc small { font-weight: 700; color: var(--ink-soft); }
+.pc[aria-selected="true"] { border-color: var(--accent); }

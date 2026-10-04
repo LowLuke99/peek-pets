@@ -114,3 +114,36 @@ export function pairCodeFromHash(hash) {
   const m = /(?:^|[#&])pair=([A-Za-z0-9-]{4,12})/.exec(hash ?? '');
   return m ? normalizeCode(m[1]) : null;
 }
+
+export const DEFAULT_PORT = 8787;
+
+/**
+ * What the native app's "add a PC" box understands: a pasted QR link
+ * ("http://10.0.0.206:8787/#pair=ABC234"), an address ("10.0.0.206" or "10.0.0.206:8787",
+ * "luke-pc.local") or just a code. Only LAN-style hosts are accepted.
+ * @returns {{host: string|null, code: string|null}}
+ */
+export function parsePairTarget(text) {
+  const src = String(text ?? '').trim();
+  let host = null;
+  const code = pairCodeFromHash(src.includes('#') ? src.slice(src.indexOf('#')) : '') ?? (/^[A-Za-z0-9]{3}-?[A-Za-z0-9]{3}$/.test(src) ? normalizeCode(src) : null);
+  const m = /^(?:https?:\/\/)?([A-Za-z0-9.-]+|\[[0-9a-fA-F:]+\])(?::(\d{2,5}))?(?:[/#?].*)?$/.exec(src);
+  if (m && !/^[A-Za-z0-9]{3}-?[A-Za-z0-9]{3}$/.test(src)) {
+    const name = m[1];
+    const port = m[2] ? Number(m[2]) : DEFAULT_PORT;
+    if (isLanHost(name) && port > 0 && port < 65536) host = `${name}:${port}`;
+  }
+  return { host, code };
+}
+
+function isLanHost(name) {
+  if (/\.local$/i.test(name)) return true;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(name);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    if (v4.slice(1).some((x) => Number(x) > 255)) return false;
+    return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+  }
+  return /^\[(fe80|fd|fc)/i.test(name);
+}
+

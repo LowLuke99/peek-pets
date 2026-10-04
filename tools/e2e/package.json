@@ -1,1 +1,1 @@
-{"name":"peek-pets-e2e","private":true,"type":"module","scripts":{"live":"node live-test.mjs"},"devDependencies":{"playwright":"^1.63.0"}}
+{"name":"peek-pets-e2e","private":true,"type":"module","scripts":{"live":"node live-test.mjs"},"devDependencies":{"multicast-dns":"^7.2.5","playwright":"^1.63.0"}}

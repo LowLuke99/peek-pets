@@ -16,7 +16,8 @@ export class Link {
    */
   constructor(opts) {
     this.store = opts.store;
-    this.url = opts.url ?? defaultUrl();
+    // Inside the native app the page isn't served by the PC: use the PC picked at pairing.
+    this.url = opts.url ?? defaultUrl(this.store.get('pcHost'));
     this.deviceName = opts.deviceName ?? guessDeviceName();
     this.onState = opts.onState;
     this.onCursor = opts.onCursor;
@@ -52,10 +53,17 @@ export class Link {
 
   /** http(s)://host:port of the PC (for uploads), derived from the socket address. */
   get httpBase() {
+    if (!this.url) return '';
     const u = new URL(this.url);
     return `${u.protocol === 'wss:' ? 'https:' : 'http:'}//${u.host}`;
   }
-  get canConnect() { return Boolean(this.token || this.pendingCode); }
+  get canConnect() { return Boolean(this.url && (this.token || this.pendingCode)); }
+
+  /** Native app: talk to this PC from now on ("10.0.0.206:8787"). */
+  setHost(host) {
+    this.store.set('pcHost', host);
+    this.url = defaultUrl(host);
+  }
 
   start() {
     this.wantStop = false;
@@ -282,7 +290,8 @@ export class Link {
   }
 }
 
-function defaultUrl() {
+function defaultUrl(savedHost) {
+  if (!location.protocol.startsWith('http')) return savedHost ? `ws://${savedHost}/ws` : null; // native app (capacitor://)
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${location.host}/ws`;
 }

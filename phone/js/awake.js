@@ -1,6 +1,9 @@
-// Best-effort "keep the screen on" so the pet stays visible on a desk.
+// Best-effort "keep the screen on" so the pet stays visible on a desk. In the native
+// iPhone app the KeepAwake plugin does it properly.
 // Screen Wake Lock needs a secure (HTTPS) page; over plain LAN HTTP we fall back to a
 // tiny looping muted video, which iOS treats as media playback.
+
+import { nativeKeepAwake } from './native.js';
 
 export class KeepAwake {
   constructor() {
@@ -13,6 +16,7 @@ export class KeepAwake {
   }
 
   get method() {
+    if (this.nativeOn) return 'native';
     if (this.lock) return 'wake-lock';
     if (this.video && !this.video.paused) return 'video';
     return 'off';
@@ -21,6 +25,7 @@ export class KeepAwake {
   /** Must be called from a user gesture the first time (iOS media rules). */
   async enable() {
     this.wanted = true;
+    if (await nativeKeepAwake(true)) { this.nativeOn = true; return 'native'; }
     if ('wakeLock' in navigator && window.isSecureContext) {
       try {
         this.lock = await navigator.wakeLock.request('screen');
@@ -44,6 +49,7 @@ export class KeepAwake {
   }
 
   disable() {
+    if (this.nativeOn) { this.nativeOn = false; nativeKeepAwake(false); }
     this.wanted = false;
     this.lock?.release().catch(() => {});
     this.lock = null;

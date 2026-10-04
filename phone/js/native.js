@@ -55,3 +55,22 @@ export async function nativeKeepAwake(on) {
     return false;
   }
 }
+
+/**
+ * Finds PCs running the companion on this Wi-Fi (Bonjour "_peekpets._tcp"), via the
+ * app's own PeekDiscovery plugin. Web pages can't browse the network: returns [].
+ * @returns {Promise<Array<{pc: string, host: string, version?: string}>>}
+ */
+export async function discoverPcs(timeoutMs = 2500) {
+  const D = plugin('PeekDiscovery');
+  if (!D) return [];
+  try {
+    const { services = [] } = await D.browse({ timeout: timeoutMs });
+    return services
+      .map((s) => ({ pc: String(s.pc || s.name || 'PC').slice(0, 40), ip: String(s.ip || '').split(',')[0], port: Number(s.port) || 8787, version: s.ver }))
+      .filter((s) => /^\d{1,3}(\.\d{1,3}){3}$/.test(s.ip))
+      .map((s) => ({ pc: s.pc, host: `${s.ip}:${s.port}`, version: s.version }));
+  } catch {
+    return [];
+  }
+}

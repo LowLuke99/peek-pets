@@ -43,6 +43,8 @@ public sealed class PetServer : IAsyncDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly RateLimiter _messageLimits = new(() => DateTime.UtcNow);
     private WebApplication? _app;
+    private MdnsAdvertiser? _mdns;
+    public string? MdnsStatus { get; private set; }
 
     public string PhoneRoot { get; }
     public int Port => _settings.Port;
@@ -120,6 +122,17 @@ public sealed class PetServer : IAsyncDisposable
                 ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
                 return;
             }
+            // The native iPhone app's pages come from capacitor://localhost: let exactly those
+            // origins call the API (never a wildcard, never a reflected arbitrary origin).
+            var origin = ctx.Request.Headers.Origin.ToString();
+            if (origin is "capacitor://localhost" or "ionic://localhost")
+            {
+                ctx.Response.Headers["Access-Control-Allow-Origin"] = origin;
+                ctx.Response.Headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
+                ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST";
+                ctx.Response.Headers["Vary"] = "Origin";
+                if (HttpMethods.IsOptions(ctx.Request.Method)) { ctx.Response.StatusCode = StatusCodes.Status204NoContent; return; }
+            }
             ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
             ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
             ctx.Response.Headers["Cache-Control"] = "no-cache";
@@ -152,6 +165,17 @@ public sealed class PetServer : IAsyncDisposable
         _app = app;
         AttachPowers();
         Log?.Invoke($"Listening on port {_settings.Port}, serving {PhoneRoot}");
+        if (!LoopbackOnly) Advertise();
+    }
+
+    /// <summary>Bonjour: lets the iPhone app find this PC without typing an address.</summary>
+    private void Advertise()
+    {
+        var lan = CurrentLan();
+        _mdns = new MdnsAdvertiser();
+        var txt = MdnsAdvertiser.TxtRecord(Environment.MachineName, lan, Port, SecureEnabled ? SecurePort : 0, ProtocolVersion, Version);
+        MdnsStatus = _mdns.Start(Environment.MachineName, lan, Port, txt) ? "advertising _peekpets._tcp" : $"not advertised ({_mdns.Error})";
+        Log?.Invoke($"Bonjour: {MdnsStatus}");
     }
 
     private async Task HandleSocketAsync(HttpContext ctx)
@@ -516,5 +540,6 @@ public sealed class PetServer : IAsyncDisposable
         _sampler.Dispose();
         _facts.Dispose();
         Powers?.Dispose();
+        _mdns?.Dispose();
     }
 }

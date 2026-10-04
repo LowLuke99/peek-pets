@@ -59,7 +59,8 @@ public partial class MainWindow : Window
         UrlBox.Text = _baseUrl.TrimEnd('/');
         NetworkText.Text = lan.Count == 0
             ? "No Wi-Fi/Ethernet address found. Connect this PC to the same Wi-Fi as your phone."
-            : string.Join("\n", lan.Select(a => $"{a.Address}  ·  {a.Interface}")) + $"\nPort {_server.Port}";
+            : string.Join("\n", lan.Select(a => $"{a.Address}  ·  {a.Interface}")) + $"\nPort {_server.Port}"
+              + (_server.MdnsStatus is { } mdns ? $"\niPhone app: {mdns}" : "");
         RefreshPairing();
         RefreshPhones();
         _slowTimer.Start();
