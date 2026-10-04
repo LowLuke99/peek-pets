@@ -100,8 +100,9 @@ const target = await app(() => {
 if (target) await page.mouse.click(target.x, target.y);
 await page.screenshot({ path: join(OUT, 'pop.png') });
 check('Bubble Pop: tapping a bubble pops it', await app(() => window.peek.games.game?.state.pops >= 1));
-await app(() => { const g = window.peek.games.game; g.state = { ...g.state, time: 29.95 }; });
-check('Bubble Pop pays out at the end', await waitFor(() => !document.querySelector('#gameover').hidden && /🪙/.test(document.querySelector('#gameover').textContent)));
+await app(() => { const g = window.peek.games.game; g.state = { ...g.state, score: Math.max(1, g.state.score) }; });
+await page.click('#gameQuit');
+check('Quit keeps what you earned: Bubble Pop pays out', await waitFor(() => !document.querySelector('#gameover').hidden && /🪙/.test(document.querySelector('#gameover').textContent)));
 
 check('no page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

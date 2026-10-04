@@ -20,6 +20,9 @@ export class PopGame {
     return Math.max(0.3, Math.min(b.right, -b.left) - POP.r * 1.4);
   }
 
+  quitScore() { return this.state.score; }
+  finishNow(score) { this.host.finish(score, { unit: 'points' }); }
+
   pointer(kind, p) {
     if (kind !== 'down') return;
     const app = this.app;
@@ -60,27 +63,41 @@ export class PopGame {
   }
 
   draw(ctx) {
-    const t = this.state.time;
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    const t = this.state.time, r = POP.r;
     for (const b of this.state.bubbles) {
-      const x = bubbleX(b, t), y = b.y, r = POP.r;
-      const tint = b.kind === 'gold' ? '255,214,90' : b.kind === 'rain' ? '150,160,185' : '190,230,255';
-      const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
-      g.addColorStop(0, 'rgba(255,255,255,0.55)');
-      g.addColorStop(0.7, `rgba(${tint},0.22)`);
-      g.addColorStop(1, `rgba(${tint},0.6)`);
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = `rgba(${tint},0.85)`;
-      ctx.lineWidth = 0.008;
-      ctx.stroke();
-      ctx.font = `${r * 1.05}px ${FONT}`;
-      ctx.fillText(b.kind === 'gold' ? '⭐' : b.kind === 'rain' ? '🌧️' : EMOJI[b.treat], x, y + r * 0.05);
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.beginPath(); ctx.ellipse(x - r * 0.42, y - r * 0.45, r * 0.16, r * 0.08, -0.7, 0, Math.PI * 2); ctx.fill();
+      ctx.drawImage(sprite(b.kind === 'treat' ? b.treat : b.kind), bubbleX(b, t) - r, b.y - r, r * 2, r * 2);
     }
-    ctx.restore();
   }
+}
+
+// Each bubble look is drawn once into a small canvas and reused (no gradients per frame).
+const SPRITE_PX = 128;
+const sprites = new Map();
+
+function sprite(kind) {
+  let c = sprites.get(kind);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = c.height = SPRITE_PX;
+  const ctx = c.getContext('2d');
+  const R = SPRITE_PX / 2 - 3;
+  ctx.translate(SPRITE_PX / 2, SPRITE_PX / 2);
+  const tint = kind === 'gold' ? '255,214,90' : kind === 'rain' ? '150,160,185' : '190,230,255';
+  const g = ctx.createRadialGradient(-R * 0.35, -R * 0.4, R * 0.1, 0, 0, R);
+  g.addColorStop(0, 'rgba(255,255,255,0.55)');
+  g.addColorStop(0.7, `rgba(${tint},0.22)`);
+  g.addColorStop(1, `rgba(${tint},0.6)`);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = `rgba(${tint},0.85)`;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `${Math.round(R * 1.05)}px ${FONT}`;
+  ctx.fillText(kind === 'gold' ? '⭐' : kind === 'rain' ? '🌧️' : EMOJI[kind], 0, R * 0.05);
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.beginPath(); ctx.ellipse(-R * 0.42, -R * 0.45, R * 0.16, R * 0.08, -0.7, 0, Math.PI * 2); ctx.fill();
+  sprites.set(kind, c);
+  return c;
 }

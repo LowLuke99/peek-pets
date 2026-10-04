@@ -26,7 +26,7 @@ export class GameHost {
     this.layer = $('#gamelayer');
     this.hud = $('#gamehud');
     this.card = $('#gameover');
-    $('#gameQuit')?.addEventListener('click', () => this.stop());
+    $('#gameQuit')?.addEventListener('click', () => this.quit());
     const toStage = (e) => this.app.renderer.toStage(e.clientX, e.clientY);
     this.layer?.addEventListener('pointerdown', (e) => { this.layer.setPointerCapture?.(e.pointerId); this.game?.pointer('down', toStage(e)); });
     this.layer?.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') this.game?.pointer('move', toStage(e)); });
@@ -58,6 +58,15 @@ export class GameHost {
     app.send(`game-${id}`);
   }
 
+  /** Quit button: end the round now and keep what you earned so far (nothing to lose by quitting). */
+  quit() {
+    const game = this.game;
+    if (!game) return;
+    const banked = game.quitScore?.() ?? 0;
+    if (banked > 0) game.finishNow?.(banked);
+    else { this.onQuit?.(); this.stop(); }
+  }
+
   /** Ends the game; `quiet` skips the results card (e.g. switching games). */
   stop(quiet = false) {
     if (!this.game) return;
@@ -70,7 +79,7 @@ export class GameHost {
 
   // ---------------------------------------------------------------- hooks from the app
   frame(dt) {
-    if (!this.game) return;
+    if (!this.game || this.app.ui.sheetKind) return; // paused while a sheet covers the game
     this.game.update(dt);
     if ((this.hudTimer = (this.hudTimer ?? 0) + dt) > 0.1) { this.hudTimer = 0; this.renderHud(); }
   }
@@ -84,8 +93,9 @@ export class GameHost {
   renderHud() {
     const info = this.game?.hud?.();
     if (!info) return;
-    $('#gameScore').textContent = info.score;
-    $('#gameInfo').textContent = info.info;
+    const score = $('#gameScore'), line = $('#gameInfo');
+    if (score.textContent !== info.score) score.textContent = info.score;
+    if (line.textContent !== info.info) line.textContent = info.info;
   }
 
   /** Called by a game when the round is over: pays coins + XP, records the best, shows results. */

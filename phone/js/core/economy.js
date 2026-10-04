@@ -29,7 +29,8 @@ export function levelInfo(xp) {
 
 /** Petting/tapping: 1 XP, then nothing until the cooldown passes. */
 export function interactXp(wallet, now) {
-  if (now - (wallet.lastInteract ?? 0) < INTERACT_COOLDOWN_MS) return { wallet, gained: 0 };
+  const since = now - (wallet.lastInteract ?? 0);
+  if (since >= 0 && since < INTERACT_COOLDOWN_MS) return { wallet, gained: 0 }; // (clock moved back: treat as expired)
   return { wallet: { ...wallet, xp: wallet.xp + 1, lastInteract: now }, gained: 1 };
 }
 

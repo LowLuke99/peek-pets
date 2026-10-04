@@ -4,7 +4,7 @@
 
 import { store } from '../store.js';
 import { $ } from '../ui/dom.js';
-import { wear, outfitFor, buy } from '../core/wardrobe.js';
+import { wear, outfitFor, buy, migrateOwned } from '../core/wardrobe.js';
 import { photoFileName } from '../core/photo.js';
 import { backdropById, backdropUrl, backdropLayout } from '../core/backdrops.js';
 import { pickLine } from '../behavior/lines.js';
@@ -22,7 +22,12 @@ export class PlayGlue {
   constructor(app) {
     this.app = app;
     this.outfits = store.get('outfits') ?? {};
-    this.owned = store.get('owned') ?? [];
+    this.owned = store.get('owned');
+    if (!Array.isArray(this.owned)) { // first run after coins replaced level unlocks
+      const oldLevel = Math.max(1, ...Object.values(store.get('bonds') ?? {}).map((b) => Number(b?.level) || 1));
+      this.owned = migrateOwned(this.outfits, app.settings.backdrop, oldLevel);
+      store.set('owned', this.owned);
+    }
     this.snacks = new SnackTime(app);
     this.motion = new MotionSense({ onShake: () => this.onShake() });
     this.photoAt = null;

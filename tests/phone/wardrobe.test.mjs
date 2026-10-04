@@ -50,3 +50,13 @@ test('wear refuses items you don\'t own; outfitFor drops junk from storage', () 
   assert.deepEqual(outfitFor({ mochi: { head: 'specs', face: '<img>' } }, 'mochi'), { head: null, face: null });
   assert.deepEqual(outfitFor('garbage', 'mochi'), { head: null, face: null });
 });
+
+import { migrateOwned } from '../../phone/js/core/wardrobe.js';
+
+test('updating from level-unlocks keeps everything you had: worn items, backdrop, old unlocks', () => {
+  const owned = migrateOwned({ mochi: { head: 'crown', face: null }, pip: { head: null, face: 'specs' } }, 'space', 3);
+  for (const id of ['crown', 'specs', 'space', 'party', 'beanie']) assert.ok(owned.includes(id), id);
+  assert.ok(!owned.includes('wizard'), 'level 6 item stays in the shop');
+  assert.ok(!owned.includes('bow'), 'free items need no entry');
+  assert.deepEqual(migrateOwned(null, 'none', 1), []);
+});

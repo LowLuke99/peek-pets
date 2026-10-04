@@ -26,6 +26,7 @@ export class FriendsGlue {
       onEvent: (e) => this.onEvent(e),
     });
     app.games.onFinished = (game, score) => this.gameFinished(game, score);
+    app.games.onQuit = () => { this.challenge = null; }; // gave up: no reply later
     if (this.client.signedUp && this.client.configured) {
       this.client.connect();
       this.refresh().catch(() => {});
@@ -112,8 +113,8 @@ export class FriendsGlue {
 
   // ---------------------------------------------------------------- games
   async gameFinished(game, score) {
-    if (!this.client.signedUp) return;
-    this.client.call('POST', '/v1/scores', { game, score }).catch(() => {});
+    if (!this.client.signedUp) { this.challenge = null; return; }
+    if (score > 0) this.client.call('POST', '/v1/scores', { game, score }).catch(() => {});
     const c = this.challenge;
     if (!c || c.game !== game) return;
     this.challenge = null;

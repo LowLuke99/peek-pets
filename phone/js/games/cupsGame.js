@@ -45,6 +45,10 @@ export class CupsGame {
     return Math.min(1, half / CUPS.slotX[2]);
   }
 
+  /** Rounds already won count when you quit. */
+  quitScore() { return this.level - 1; }
+  finishNow(rounds) { this.host.finish(rounds, { unit: rounds === 1 ? 'round' : 'rounds' }); }
+
   pointer(kind, p) {
     if (kind !== 'down' || this.picked !== null || phaseAt(this.round, this.t) !== 'pick') return;
     const k = this.xScale;

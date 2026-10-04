@@ -24,6 +24,9 @@ export class CatchGame {
     return Math.max(0.2, Math.min(b.right, -b.left) - 0.45);
   }
 
+  quitScore() { return this.state.score; }
+  finishNow(score) { this.host.finish(score, { unit: 'points' }); }
+
   pointer(kind, p) {
     this.targetX = kind === 'up' ? this.targetX : p.x;
   }

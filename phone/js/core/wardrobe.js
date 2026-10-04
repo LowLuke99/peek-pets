@@ -53,3 +53,17 @@ export function buy(entry, owned, wallet) {
   if (wallet.coins < entry.price) return { error: 'coins' };
   return { owned: [...list, entry.id], wallet: { ...wallet, coins: wallet.coins - entry.price } };
 }
+
+// Before v0.4 items unlocked by bond level instead of coins. On the first run after the
+// update, everything you had stays yours: what pets wear, your backdrop, old unlocks.
+const OLD_UNLOCK_LEVEL = { bow: 1, flower: 1, party: 2, specs: 2, beanie: 3, shades: 4, crown: 5, wizard: 6 };
+
+export function migrateOwned(outfits, backdrop, oldLevel) {
+  const ids = new Set();
+  for (const o of Object.values(outfits && typeof outfits === 'object' ? outfits : {})) {
+    for (const id of [o?.head, o?.face]) if (itemById(id)?.price > 0) ids.add(id);
+  }
+  for (const [id, lv] of Object.entries(OLD_UNLOCK_LEVEL)) if (lv <= oldLevel && itemById(id)?.price > 0) ids.add(id);
+  if (backdrop && backdrop !== 'none' && backdrop !== 'bedroom') ids.add(backdrop);
+  return [...ids];
+}
