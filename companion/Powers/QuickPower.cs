@@ -38,7 +38,7 @@ public sealed class QuickPower(CompanionSettings settings) : PowerBase
     [
         new("find_cursor", "Show where the cursor is", 20),
         new("lock", "Lock this PC", 3),
-        new("mic_toggle", "Mute / unmute the microphone", 20),
+        new("mic_toggle", "Mute / unmute the microphone", 20, AskFirst: true),
         new("launch", "Open a favourite app or site", 6),
     ];
 

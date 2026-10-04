@@ -40,7 +40,7 @@ export class SnackTime {
       store.set('snacks', this.eaten);
     }
     const start = app.renderer.toStage(from?.x ?? app.renderer.W / 2, from?.y ?? app.renderer.H - 60);
-    this.treat = { snack, outcome: result.outcome, x: start.x, y: start.y, x0: start.x, y0: start.y, u: 0, spin: 0, cued: false, bounce: null };
+    this.treat = { pet, snack, outcome: result.outcome, x: start.x, y: start.y, x0: start.x, y0: start.y, u: 0, spin: 0, cued: false, bounce: null };
     if (app.emotion === 'asleep' || app.mood.napping) app.react({ type: 'tap' });
     app.syncNapUi();
     app.sfx.play('swoosh');
@@ -80,6 +80,10 @@ export class SnackTime {
 
   arrive(t, m) {
     const app = this.app;
+    if (t.pet !== app.species.id) { // switched pets mid-throw: the treat just drops away
+      t.bounce = { vx: 0, vy: 0.5, age: 0.3 };
+      return;
+    }
     if (t.outcome === 'full') {
       t.bounce = { vx: (Math.random() < 0.5 ? -1 : 1) * 1.3, vy: -1.6, age: 0 };
       app.sfx.play('bounce');

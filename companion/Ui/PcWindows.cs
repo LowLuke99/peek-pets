@@ -164,6 +164,10 @@ public sealed class CursorSpotlight : Window
         };
         CompositionTarget.Rendering += OnRender;
         Closed += (_, _) => CompositionTarget.Rendering -= OnRender;
+        // Belt and braces: never outlive the effect, even if the fade animation is interrupted.
+        var safety = new System.Windows.Threading.DispatcherTimer { Interval = Lifetime + TimeSpan.FromSeconds(1) };
+        safety.Tick += (_, _) => { safety.Stop(); if (IsLoaded) Close(); };
+        safety.Start();
     }
 
     private void OnRender(object? sender, EventArgs e) => Follow();

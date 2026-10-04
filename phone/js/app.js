@@ -436,7 +436,6 @@ export class App {
       onAnyTouch: () => {
         this.sfx.unlock();
         if (this.settings.awake) this.awake.enable();
-        if (this.settings.motion && !this.play.motion.on) this.play.motion.enable();
       },
       onTap: (hit) => this.onTap(hit),
       onDoubleTap: (hit) => {

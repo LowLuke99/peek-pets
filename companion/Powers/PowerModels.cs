@@ -8,7 +8,9 @@ namespace PeekPets.Companion.Powers;
 /// power's PC-side permission, a one-time approval per phone, and passes a rate limit.
 /// </summary>
 /// <param name="Sensitive">Approval lasts only a few minutes and is never saved (e.g. reading the clipboard).</param>
-public sealed record CommandSpec(string Name, string Label, int PerMinute = 20, bool Sensitive = false);
+/// <param name="Sensitive">asks every time (approval lasts 10 min), e.g. reading the PC clipboard.</param>
+/// <param name="AskFirst">asks once even when auto-allow is on (then remembered), e.g. the microphone.</param>
+public sealed record CommandSpec(string Name, string Label, int PerMinute = 20, bool Sensitive = false, bool AskFirst = false);
 
 public sealed record CommandResult(bool Ok, string? Reason = null, object? Data = null)
 {

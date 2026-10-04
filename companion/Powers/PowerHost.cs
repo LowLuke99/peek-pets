@@ -194,7 +194,9 @@ public sealed class PowerHost : IDisposable
         if (!_limits.TryTake($"{caller.DeviceId}|{powerKey}.{command}", spec.PerMinute))
             return Deny(caller, powerKey, command, "rate_limited");
 
-        if (!spec.Sensitive && AutoAllow && !IsApproved(caller.DeviceId, powerKey, command))
+        var deniedKey = $"{caller.DeviceId}|{powerKey}.{command}";
+        bool recentlyDenied = _deniedUntil.TryGetValue(deniedKey, out var deniedUntil) && _now() < deniedUntil;
+        if (!spec.Sensitive && !spec.AskFirst && !recentlyDenied && AutoAllow && !IsApproved(caller.DeviceId, powerKey, command))
             Audit.Add(new AuditEntry(_now(), caller.DeviceName, powerKey, command, "auto-allowed (paired phone)"));
         else if (!IsApproved(caller.DeviceId, powerKey, command, spec.Sensitive))
         {

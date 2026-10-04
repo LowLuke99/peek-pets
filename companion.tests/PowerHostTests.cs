@@ -31,7 +31,7 @@ internal sealed class ProbePower : PowerBase
     public override string Key => "probe";
     public override string Label => "Probe";
     public override string Description => "test";
-    public override IReadOnlyList<CommandSpec> Commands { get; } = [new("poke", "Poke", 3), new("boom", "Boom", 10), new("peek", "Peek", 30, Sensitive: true)];
+    public override IReadOnlyList<CommandSpec> Commands { get; } = [new("poke", "Poke", 3), new("boom", "Boom", 10), new("peek", "Peek", 30, Sensitive: true), new("mic", "Mic", 10, AskFirst: true)];
     public override void Start(IPowerContext ctx) { base.Start(ctx); Starts++; }
     public override void Stop() => Stops++;
     public override void Tick() => Ticks++;
@@ -123,6 +123,27 @@ public sealed class PowerHostTests : IDisposable
         for (int i = 0; i < 3; i++) Assert.True((await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Ok);
         Assert.Equal("rate_limited", (await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason);
         Assert.Equal(3, probe.Runs);
+    }
+
+    [Fact]
+    public async Task Auto_allow_still_asks_once_for_ask_first_commands()
+    {
+        var (host, probe, approvals, _, _) = Make(approve: true, autoAllow: true);
+        host.SetPhoneOn("probe", true);
+        Assert.True((await host.RunCommandAsync(Phone, "probe", "mic", NoArgs)).Ok);
+        Assert.True((await host.RunCommandAsync(Phone, "probe", "mic", NoArgs)).Ok);
+        Assert.Equal(1, approvals.Asked); // asked once, then remembered
+    }
+
+    [Fact]
+    public async Task A_recent_denial_still_wins_after_auto_allow_is_switched_on()
+    {
+        var (host2, _, approvals2, _, _) = Make(approve: false, autoAllow: false);
+        host2.SetPhoneOn("probe", true);
+        Assert.Equal("denied", (await host2.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason);
+        host2.SetAutoAllow(true);
+        Assert.Equal("denied", (await host2.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason); // "Don't allow" still wins for a while
+        Assert.Equal(1, approvals2.Asked);
     }
 
     [Fact]

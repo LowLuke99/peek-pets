@@ -33,8 +33,24 @@ export class PlayGlue {
     });
     $('#styleBtn')?.addEventListener('click', () => app.openSheet('style'));
     this.backdropImg = null;
+    this.outfitCache = null;
     window.addEventListener('resize', () => requestAnimationFrame(() => this.layoutBackdrop()));
     this.applyBackdrop();
+    if (app.settings.motion) this.resumeMotionOnTap();
+  }
+
+  /**
+   * Shake & tilt was on last time. iOS only grants motion access during a real tap
+   * (touchend/click, not touch-down), so ask on the first one, once.
+   */
+  resumeMotionOnTap() {
+    const once = () => {
+      document.removeEventListener('touchend', once);
+      document.removeEventListener('click', once);
+      if (this.app.settings.motion && !this.motion.on) this.app.setSetting('motion', true);
+    };
+    document.addEventListener('touchend', once);
+    document.addEventListener('click', once);
   }
 
   // ---------------------------------------------------------------- backdrops
@@ -68,8 +84,11 @@ export class PlayGlue {
     this.applyBackdrop();
   }
 
+  /** The current pet's outfit (cached: read every frame). */
   get outfit() {
-    return outfitFor(this.outfits, this.app.species.id);
+    const pet = this.app.species.id;
+    if (this.outfitCache?.pet !== pet) this.outfitCache = { pet, outfit: outfitFor(this.outfits, pet) };
+    return this.outfitCache.outfit;
   }
 
   get busy() {
@@ -158,6 +177,7 @@ export class PlayGlue {
     const app = this.app;
     const before = this.outfit;
     this.outfits = wear(this.outfits, app.species.id, itemId, app.bonds);
+    this.outfitCache = null;
     store.set('outfits', this.outfits);
     const now = this.outfit;
     if (now !== before && Object.values(now).includes(itemId)) {
@@ -198,7 +218,7 @@ export class PlayGlue {
         palette: app.species.palette,
         name: app.species.name,
         level: app.bond.level,
-        backdrop: this.backdropImg?.complete && this.layout ? { img: this.backdropImg, ...this.layout } : null,
+        backdrop: this.backdropImg?.complete && this.backdropImg.naturalWidth > 0 && this.layout ? { img: this.backdropImg, ...this.layout } : null,
       });
     } catch {
       app.ui.toast("Couldn't take the photo");

@@ -16,7 +16,7 @@ while [[ $# -gt 0 ]]; do
     --update) UPDATE=1 ;;
     --no-open) OPEN=0 ;;
     --ci) CI_MODE=1; OPEN=0 ;;
-    --bundle-id) BUNDLE_ID="${2:-}"; shift ;;
+    --bundle-id) [[ $# -ge 2 ]] || { echo "--bundle-id needs a value, e.g. com.yourname.peekpets"; exit 2; }; BUNDLE_ID="$2"; shift ;;
     -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1 (try --help)"; exit 2 ;;
   esac
@@ -55,6 +55,9 @@ ok "Node $(node -v)"
 if [[ $UPDATE -eq 1 ]]; then
   if [[ -d .git ]]; then
     say "Getting the latest version…"
+    # A custom bundle ID edits the Xcode project; put it back so the pull can't conflict
+    # (it is re-applied below when --bundle-id is given).
+    git checkout -- app/ios/App/App.xcodeproj/project.pbxproj 2>/dev/null || true
     git pull --ff-only
     ok "Up to date ($(git log -1 --format='%h %s'))"
   else

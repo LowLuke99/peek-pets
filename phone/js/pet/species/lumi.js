@@ -27,6 +27,17 @@ function antenna(side, a) {
   return pts;
 }
 
+let nightCache = { at: -Infinity, night: false };
+/** Lumi glows brighter at night (checked once a minute, not every frame). */
+function isNight() {
+  const now = Date.now();
+  if (now - nightCache.at > 60_000) {
+    const h = new Date(now).getHours();
+    nightCache = { at: now, night: h >= 20 || h < 6 };
+  }
+  return nightCache.night;
+}
+
 export const lumi = {
   id: 'lumi',
   name: 'Lumi',
@@ -82,8 +93,7 @@ export const lumi = {
   },
 
   glow(pose) {
-    const night = new Date().getHours();
-    const k = night >= 20 || night < 6 ? 1 : 0.4;
+    const k = isNight() ? 1 : 0.4;
     return { x: 0, y: 0, r: 0.6, color: '#D9C2FF', strength: (0.08 + pose.energy * 0.1) * k };
   },
 

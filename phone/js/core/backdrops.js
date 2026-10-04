@@ -1,16 +1,15 @@
 // Backdrops: painted scenes behind the pet (made with Kling), or the pet's own colours.
 // `floor` = how far down the image (0..1) its empty floor spot sits, so the scene can
-// be positioned with the spot under the pet. `ink` = whether UI text over it should be
-// light (dark scenes) or dark.
+// be positioned with the spot under the pet.
 
 export const BACKDROPS = Object.freeze([
   { id: 'none', name: 'Pet colours' },
-  { id: 'bedroom', name: 'Cosy room', floor: 0.86, ink: 'dark' },
-  { id: 'beach', name: 'Sunset beach', floor: 0.86, ink: 'dark' },
-  { id: 'forest', name: 'Forest', floor: 0.8, ink: 'dark' },
-  { id: 'space', name: 'Space station', floor: 0.86, ink: 'light' },
-  { id: 'cabin', name: 'Snowy cabin', floor: 0.88, ink: 'dark' },
-  { id: 'candy', name: 'Candy clouds', floor: 0.82, ink: 'dark' },
+  { id: 'bedroom', name: 'Cosy room', floor: 0.86 },
+  { id: 'beach', name: 'Sunset beach', floor: 0.86 },
+  { id: 'forest', name: 'Forest', floor: 0.8 },
+  { id: 'space', name: 'Space station', floor: 0.86 },
+  { id: 'cabin', name: 'Snowy cabin', floor: 0.88 },
+  { id: 'candy', name: 'Candy clouds', floor: 0.82 },
 ].map((b) => Object.freeze(b)));
 
 export const backdropById = (id) => BACKDROPS.find((b) => b.id === id) ?? BACKDROPS[0];
