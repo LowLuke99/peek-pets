@@ -11,7 +11,8 @@ const H = BORDER + PHOTO + 250;
 
 /**
  * @param {{canvases: HTMLCanvasElement[], center: {x:number,y:number}, S: number, dpr: number,
- *          palette: {bgA:string,bgB:string,accent:string}, name: string, level: number, date?: Date}} o
+ *          palette: {bgA:string,bgB:string,accent:string}, name: string, level: number, date?: Date,
+ *          backdrop?: {img: HTMLImageElement, x:number, y:number, w:number, h:number}|null}} o
  * @returns {HTMLCanvasElement}
  */
 export function composePhoto(o) {
@@ -40,6 +41,12 @@ export function composePhoto(o) {
 
   const first = o.canvases.find(Boolean);
   const crop = photoCrop(o.center, o.S, o.dpr, { w: first.width, h: first.height });
+  if (o.backdrop) {
+    // Same placement as on screen (CSS px → canvas px → photo px).
+    const k = PHOTO / crop.w;
+    const b = o.backdrop;
+    ctx.drawImage(b.img, BORDER + (b.x * o.dpr - crop.x) * k, BORDER + (b.y * o.dpr - crop.y) * k, b.w * o.dpr * k, b.h * o.dpr * k);
+  }
   for (const c of o.canvases) {
     if (c?.width) ctx.drawImage(c, crop.x, crop.y, crop.w, crop.h, BORDER, BORDER, PHOTO, PHOTO);
   }

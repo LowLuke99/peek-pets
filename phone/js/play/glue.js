@@ -6,6 +6,7 @@ import { store } from '../store.js';
 import { $ } from '../ui/dom.js';
 import { wear, outfitFor, bestLevel, unlockedBetween } from '../core/wardrobe.js';
 import { photoFileName } from '../core/photo.js';
+import { backdropById, backdropUrl, backdropLayout } from '../core/backdrops.js';
 import { pickLine } from '../behavior/lines.js';
 import { haptic } from '../native.js';
 import { SnackTime } from './snacks.js';
@@ -31,6 +32,40 @@ export class PlayGlue {
       },
     });
     $('#styleBtn')?.addEventListener('click', () => app.openSheet('style'));
+    this.backdropImg = null;
+    window.addEventListener('resize', () => requestAnimationFrame(() => this.layoutBackdrop()));
+    this.applyBackdrop();
+  }
+
+  // ---------------------------------------------------------------- backdrops
+  applyBackdrop() {
+    const b = backdropById(this.app.settings.backdrop);
+    const url = backdropUrl(b);
+    const el = $('#backdrop');
+    document.documentElement.classList.toggle('has-backdrop', Boolean(url));
+    this.backdrop = b;
+    if (!url || !el) { this.backdropImg = null; return; }
+    el.style.backgroundImage = `url("${url}")`;
+    const img = new Image();
+    img.src = url; // kept for photos (drawn under the pet)
+    this.backdropImg = img;
+    this.layoutBackdrop();
+  }
+
+  /** Lines the scene's empty floor spot up under the pet (see core/backdrops.js). */
+  layoutBackdrop() {
+    const el = $('#backdrop');
+    const r = this.app.renderer;
+    if (!el || !this.backdropImg) return;
+    const l = backdropLayout(this.backdrop, r.W, r.H, r.baseOy);
+    el.style.backgroundSize = `${l.w}px ${l.h}px`;
+    el.style.backgroundPosition = `${l.x}px ${l.y}px`;
+    this.layout = l;
+  }
+
+  setBackdrop(id) {
+    this.app.setSetting('backdrop', id);
+    this.applyBackdrop();
   }
 
   get outfit() {
@@ -112,6 +147,8 @@ export class PlayGlue {
       bonds: app.bonds,
       accent: app.species.palette.accent,
       petName: app.species.name,
+      backdrop: app.settings.backdrop,
+      onBackdrop: (id) => this.setBackdrop(id),
       onWear: (itemId) => this.wear(itemId),
       onPhoto: () => { app.ui.closeSheet(); setTimeout(() => this.takePhoto(), 260); },
     });
@@ -161,6 +198,7 @@ export class PlayGlue {
         palette: app.species.palette,
         name: app.species.name,
         level: app.bond.level,
+        backdrop: this.backdropImg?.complete && this.layout ? { img: this.backdropImg, ...this.layout } : null,
       });
     } catch {
       app.ui.toast("Couldn't take the photo");

@@ -8,3 +8,6 @@ dist/
 .vs/
 companion.tests/TestResults/
 tools/e2e/out-*.log
+
+# raw generated art (keep locally; compressed copies live in phone/)
+art/**/*.png

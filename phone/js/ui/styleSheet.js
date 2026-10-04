@@ -1,13 +1,14 @@
-// "Style" sheet: the wardrobe (hats + glasses, unlocked by bond level) and the photo
-// button. Locked items show the level they unlock at.
+// "Style" sheet: the photo button, the backdrop picker (painted scenes) and the
+// wardrobe (hats + glasses, unlocked by bond level; locked items show their level).
 
 import { h } from './dom.js';
 import { WARDROBE, isUnlocked } from '../core/wardrobe.js';
 import { drawItemIcon } from '../pet/outfit.js';
+import { BACKDROPS, backdropUrl } from '../core/backdrops.js';
 
 const ICON_PX = 132;
 
-export function styleSheet({ outfit, bonds, accent, petName, onWear, onPhoto }) {
+export function styleSheet({ outfit, bonds, accent, petName, backdrop, onWear, onPhoto, onBackdrop }) {
   const grid = h('div', { class: 'wardrobe', role: 'group', 'aria-label': 'Wardrobe' });
   const render = (current) => {
     grid.replaceChildren(...WARDROBE.map((item) => {
@@ -24,8 +25,21 @@ export function styleSheet({ outfit, bonds, accent, petName, onWear, onPhoto }) 
     }));
   };
   render(outfit);
+  const scenes = h('div', { class: 'backdrops', role: 'group', 'aria-label': 'Backdrop' });
+  const renderScenes = (current) => scenes.replaceChildren(...BACKDROPS.map((b) => {
+    const url = backdropUrl(b);
+    const thumb = h('i', { class: url ? '' : 'bd--none', 'aria-hidden': 'true' });
+    if (url) thumb.style.backgroundImage = `url("${url}")`;
+    return h('button', {
+      class: 'bd', type: 'button', 'data-backdrop': b.id, 'aria-pressed': String(b.id === current), 'aria-label': b.name,
+      onclick: () => { onBackdrop(b.id); renderScenes(b.id); },
+    }, thumb, h('small', { text: b.name }));
+  }));
+  renderScenes(backdrop);
   return h('div', {},
     h('button', { class: 'btn btn--photo', type: 'button', onclick: onPhoto, 'data-action': 'photo' }, `📸  Take a photo of ${petName}`),
+    h('p', { class: 'group__title', text: 'Backdrop' }),
+    scenes,
     h('p', { class: 'group__title', text: 'Wardrobe' }),
     h('p', { class: 'lead lead--small', text: 'Tap to wear, tap again to take off. More unlock as your bond grows (any pet counts).' }),
     grid,

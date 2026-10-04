@@ -40,6 +40,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   awake: false,
   look: 'auto', // auto | clay (WebGL) | classic (2D)
   motion: false, // shake & tilt (iOS asks permission when switched on)
+  backdrop: 'none', // painted scene behind the pet (core/backdrops.js)
 });
 
 export function loadSettings() {
