@@ -1,5 +1,6 @@
-// Ember — a little flame sprite (new). Its fire is its mood: tall and bright when
-// happy, a low cozy glow when sleepy. Sheds embers as it flickers.
+// Ember — a little flame sprite. Its fire is its mood: tall and bright when happy, a
+// low cozy glow when sleepy. Sheds embers as it flickers.
+//   draw(): classic 2D look · gl(): glowing metaball flame · drawFace(): face on top
 
 import { radial, wave } from '../shapes.js';
 import { drawEyes, drawMouth, drawBlush } from '../face.js';
@@ -22,6 +23,19 @@ function flamePath(ctx, t, energy, scale = 1) {
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
   ctx.closePath();
+}
+
+/** The flame as blended balls that rise, sway and flicker (taller with more energy). */
+function flameBalls(t, e, k = 1, lift = 0) {
+  const w = (seed, amt) => wave(t * 3.1 + seed, seed) * amt;
+  return [
+    { x: 0, y: 0.06 + lift, r: 0.33 * k },
+    { x: (-0.1 + w(1, 0.03)) * k, y: (-0.12 + lift) * k, r: 0.22 * k },
+    { x: (0.09 + w(2, 0.03)) * k, y: (-0.15 + lift) * k, r: 0.2 * k },
+    { x: w(3, 0.04) * k, y: (-0.3 - e * 0.1 + lift) * k, r: (0.15 + e * 0.02) * k },
+    { x: (-0.03 + w(4, 0.05)) * k, y: (-0.44 - e * 0.17 + lift) * k, r: (0.085 + e * 0.025) * k },
+    { x: (0.05 + w(5, 0.06)) * k, y: (-0.55 - e * 0.22 + lift) * k, r: (0.045 + e * 0.02) * k },
+  ];
 }
 
 export const ember = {
@@ -49,13 +63,11 @@ export const ember = {
   draw(ctx, pose, s) {
     const t = s.flick;
     const e = pose.energy;
-    const lx = pose.lean.x, ly = pose.lean.y;
-
     ctx.fillStyle = radial(ctx, 0, 0, 0.05, 0.75, [[0, `rgba(255,170,70,${0.25 + e * 0.35})`], [1, 'rgba(255,170,70,0)']]);
     ctx.beginPath(); ctx.arc(0, 0, 0.75, 0, Math.PI * 2); ctx.fill();
 
     ctx.save();
-    ctx.rotate(-lx * 0.05);
+    ctx.rotate(-pose.lean.x * 0.05);
     flamePath(ctx, t, e, 1);
     ctx.fillStyle = radial(ctx, 0, 0.08, 0.02, 0.62, [[0, '#FFF1B8'], [0.35, '#FFC24A'], [0.75, '#FF8A2E'], [1, '#F0532A']]);
     ctx.fill();
@@ -63,9 +75,25 @@ export const ember = {
     ctx.fillStyle = radial(ctx, 0, 0.1, 0, 0.4, [[0, 'rgba(255,252,220,0.95)'], [1, 'rgba(255,220,120,0)']]);
     ctx.fill();
     ctx.restore();
+    this.drawFace(ctx, pose, s);
+  },
 
+  gl(b, pose, s) {
+    const t = s.flick, e = pose.energy;
+    b.save();
+    b.rotate(-pose.lean.x * 0.05);
+    b.balls(flameBalls(t, e), 0.13, { base: 'flame', color: '#FFA43A', color2: '#EE4E26', sssColor: '#FF7A30', emissive: 0.6 + e * 0.25 });
+    b.balls(flameBalls(t * 1.3 + 2, e * 0.8, 0.66, 0.06), 0.1, { base: 'flame', color: '#FFF4C4', color2: '#FFC24A', sssColor: '#FFE08A', emissive: 0.85, alpha: 0.85, depth: 0.2 });
+    b.restore();
+  },
+
+  glow(pose) {
+    return { x: 0, y: -0.05, r: 0.85, color: '#FFA040', strength: 0.22 + pose.energy * 0.35 };
+  },
+
+  drawFace(ctx, pose) {
     ctx.save();
-    ctx.translate(lx * 0.05, ly * 0.03);
+    ctx.translate(pose.lean.x * 0.05, pose.lean.y * 0.03);
     drawBlush(ctx, pose, { dx: 0.2, y: 0.12, rx: 0.06, ry: 0.035, color: '#FF5A3C' });
     drawEyes(ctx, pose, {
       ...this.face, style: 'bead', reach: 0.4, skin: SKIN, ink: '#5A1E0A',

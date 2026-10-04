@@ -23,9 +23,9 @@ precision highp float;
 in vec2 vLocal;
 out vec4 outColor;
 
-uniform int uShape;      // 0 blob, 1 ellipse, 2 rrect, 3 capsule, 4 balls, 5 ring
+uniform int uShape;      // 0 blob, 1 ellipse, 2 rrect, 3 capsule, 4 balls, 5 ring, 6 rounded polygon
 uniform int uMode;       // 0 dome, 1 bevel, 2 inset, 3 flat, 4 shadow, 5 glow
-uniform vec4 uP0, uP1;   // shape parameters
+uniform vec4 uP0, uP1, uP2, uP3;   // shape parameters (polygon: up to 6 vertices, count, rounding)
 uniform vec4 uBalls[8];
 uniform int uNBalls;
 uniform vec4 uBox;
@@ -97,7 +97,36 @@ float sdRing(vec2 p) {
   return d;
 }
 
+vec2 polyVertex(int i) {
+  if (i == 0) return uP0.xy;
+  if (i == 1) return uP0.zw;
+  if (i == 2) return uP1.xy;
+  if (i == 3) return uP1.zw;
+  if (i == 4) return uP2.xy;
+  return uP2.zw;
+}
+
+// Signed distance to a polygon (any winding), rounded by uP3.y.
+float sdPoly(vec2 p) {
+  int n = int(uP3.x);
+  vec2 v0 = polyVertex(0);
+  float d = dot(p - v0, p - v0);
+  float s = 1.0;
+  for (int i = 0; i < 6; i++) {
+    if (i >= n) break;
+    int j = i == 0 ? n - 1 : i - 1;
+    vec2 vi = polyVertex(i), vj = polyVertex(j);
+    vec2 e = vj - vi, w = p - vi;
+    vec2 b = w - e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
+    d = min(d, dot(b, b));
+    bvec3 c = bvec3(p.y >= vi.y, p.y < vj.y, e.x * w.y > e.y * w.x);
+    if (all(c) || all(not(c))) s *= -1.0;
+  }
+  return s * sqrt(d) - uP3.y;
+}
+
 float field(vec2 p) {
+  if (uShape == 6) return sdPoly(p);
   if (uShape == 0) return sdSuper(p);
   if (uShape == 1) return sdEllipseR(p);
   if (uShape == 2) return sdRRect(p);
@@ -184,7 +213,7 @@ void main() {
   col += RIM * rim * uMatA.w * 0.5;
 
   // Floor bounce on downward-facing surfaces.
-  col += BOUNCE * albedo * max(n.y, 0.0) * 0.22;
+  col += BOUNCE * albedo * max(n.y, 0.0) * 0.32;
 
   // Ground occlusion toward the bottom of the part.
   col *= 1.0 - uMatB.x * smoothstep(0.15, 1.05, rel.y) * (0.6 + 0.4 * max(n.y, 0.0));
@@ -192,7 +221,14 @@ void main() {
   // Gloss: a tight highlight plus a broad soft sheen (the "vinyl toy" look).
   vec3 h = normalize(L + vec3(0.0, 0.0, 1.0));
   float nh = max(dot(n, h), 0.0);
-  col += vec3(1.0) * (pow(nh, uMatA.z) * uMatA.y + pow(nh, max(uMatA.z * 0.12, 2.0)) * uMatA.y * 0.18);
+  col += vec3(1.0) * (pow(nh, uMatA.z) * uMatA.y + pow(nh, max(uMatA.z * 0.12, 2.0)) * uMatA.y * 0.26);
+
+  // Recessed panel: soft shadow under the upper lip, a little light caught on the lower lip.
+  if (uMode == 2) {
+    float lip = 1.0 - smoothstep(0.0, uMatC.y * 3.2, -d);
+    col *= 1.0 - lip * (0.06 + 0.34 * clamp(-dir.y, 0.0, 1.0));
+    col += vec3(1.0, 0.96, 0.92) * lip * clamp(dir.y, 0.0, 1.0) * 0.07;
+  }
 
   col += albedo * uMatB.z;                                  // emissive
   col *= 1.0 + (hash(floor(p * 700.0)) - 0.5) * uMatB.y;    // grain, fixed to the surface

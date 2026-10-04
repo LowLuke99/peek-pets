@@ -109,6 +109,8 @@ export class App {
   // ---------------------------------------------------------------- frame loop
   frame(ts) {
     requestAnimationFrame((t) => this.frame(t));
+    // Battery: a sleeping pet with nothing moving only needs 30 fps.
+    if (this.restful() && (this.frameCount = (this.frameCount ?? 0) + 1) % 2) return;
     const dt = clamp((ts - this.lastTs) / 1000, 0, 0.1);
     this.lastTs = ts;
     if (dt <= 0) return;
@@ -148,11 +150,23 @@ export class App {
     if (this.settings.debug) this.updateHud(dt, now);
   }
 
+  restful() {
+    return this.emotion === 'asleep' && !this.particles.active && !this.ball.active && !this.ui.bubbleVisible && !this.glue.card.visible;
+  }
+
   trackPerformance(dt) {
     this.fps = this.fps * 0.95 + (1 / dt) * 0.05;
     this.link.fps = this.fps;
+    if (this.restful()) return; // 30 fps on purpose
     this.slowFrames = dt > 0.024 ? this.slowFrames + 1 : Math.max(0, this.slowFrames - 0.5);
-    if (this.slowFrames > 90 && this.renderer.degrade()) this.slowFrames = 0;
+    if (this.slowFrames <= 90) return;
+    this.slowFrames = 0;
+    if (this.renderer.degrade()) return;
+    if (this.look === 'clay' && this.settings.look === 'auto') {
+      // Still slow at the lowest resolution: the classic look is much cheaper.
+      this.look = this.renderer.setLook('classic');
+      this.ui.toast('Switched to the Classic look to stay smooth');
+    }
   }
 
   moodContext(now) {

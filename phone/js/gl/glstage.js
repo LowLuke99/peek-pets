@@ -6,7 +6,7 @@
 import { VERTEX, FRAGMENT } from './shaders.js';
 import { linear, normalMatrix, scaleOf, partOnScreen } from './parts.js';
 
-const UNIFORMS = ['uBox', 'uRow0', 'uRow1', 'uRes', 'uShape', 'uMode', 'uP0', 'uP1', 'uBalls', 'uNBalls', 'uN', 'uK',
+const UNIFORMS = ['uBox', 'uRow0', 'uRow1', 'uRes', 'uShape', 'uMode', 'uP0', 'uP1', 'uP2', 'uP3', 'uBalls', 'uNBalls', 'uN', 'uK',
   'uColor', 'uColor2', 'uSss', 'uMatA', 'uMatB', 'uMatC'];
 
 export class GLStage {
@@ -85,6 +85,8 @@ export class GLStage {
       gl.uniform1i(u.uMode, part.mode);
       gl.uniform4f(u.uP0, params[0], params[1], params[2], params[3]);
       gl.uniform4f(u.uP1, params[4], params[5], params[6], params[7]);
+      gl.uniform4f(u.uP2, params[8], params[9], params[10], params[11]);
+      gl.uniform4f(u.uP3, params[12], params[13], params[14], params[15]);
       if (part.circles) {
         this.balls.fill(0);
         part.circles.forEach((c, i) => { this.balls[i * 4] = c.x; this.balls[i * 4 + 1] = c.y; this.balls[i * 4 + 2] = c.r; });

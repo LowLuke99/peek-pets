@@ -63,7 +63,7 @@ export const mochi = {
     b.save();
     b.translate(shift.x, shift.y);
     b.blob({ ...PLATE, ...PLATE_SHAPE }, {
-      base: 'plate', color: '#FFE9DD', color2: '#FFF4EE', sssColor: '#FFB59C', bevel: 0.04, depth: 0.05,
+      base: 'plate', color: '#F9DDCE', color2: '#FFF0E7', sssColor: '#FFB59C', bevel: 0.045, depth: 0.05,
     });
     b.restore();
   },

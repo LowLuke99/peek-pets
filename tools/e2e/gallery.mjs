@@ -1,25 +1,30 @@
-// Renders every pet in a few emotions (WebKit, iPhone 15) and tiles them into one
-// contact sheet: node gallery.mjs <baseUrl> <outDir> [emotions=neutral,joy]
-import { webkit, devices } from 'playwright';
+// Renders every pet in a few emotions (iPhone 15 viewport) and tiles them into one
+// contact sheet:
+//   node gallery.mjs <baseUrl> <outDir> [emotions=neutral,joy] [look=clay|classic] [engine=chromium|webkit]
+// Chromium headless renders WebGL in software (slow but exact), which is fine for stills.
+import { chromium, webkit, devices } from 'playwright';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const [base, outDir, emotionArg = 'neutral,joy'] = process.argv.slice(2);
+const [base, outDir, emotionArg = 'neutral,joy', look = 'clay', engine = look === 'clay' ? 'chromium' : 'webkit'] = process.argv.slice(2);
 const emotions = emotionArg.split(',');
 mkdirSync(outDir, { recursive: true });
 
-const browser = await webkit.launch();
+const browser = await (engine === 'webkit' ? webkit : chromium).launch({ args: engine === 'chromium' ? ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] : [] });
 const context = await browser.newContext({ ...devices['iPhone 15'] });
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
-page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-await page.addInitScript(() => localStorage.setItem('peekpets.seenPair', 'true'));
+page.on('console', (m) => { if (m.type() === 'error' && !/WebSocket/.test(m.text())) errors.push(m.text()); });
+await page.addInitScript((lk) => {
+  localStorage.setItem('peekpets.seenPair', 'true');
+  localStorage.setItem('peekpets.settings', JSON.stringify({ look: lk }));
+}, look);
 await page.goto(base);
 await page.waitForFunction(() => window.peek?.pose);
+const actualLook = await page.evaluate(() => window.peek.look);
 
-const ids = await page.evaluate(() => [...document.querySelectorAll('.pet-card')].length || null) ?? null;
 const species = await page.evaluate(async () => (await import('./js/pet/species/index.js')).SPECIES.map((s) => s.id));
 const files = [];
 for (const id of species) {
@@ -37,7 +42,7 @@ for (const id of species) {
   }
 }
 await browser.close();
-console.log(JSON.stringify({ species, emotions, errors }));
+console.log(JSON.stringify({ look: actualLook, species, emotions, errors }));
 
 // Tile: one row per pet, one column per emotion, scaled down.
 const cols = emotions.length * 4;

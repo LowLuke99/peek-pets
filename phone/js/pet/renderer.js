@@ -104,10 +104,10 @@ export class Renderer {
   }
 
   /** Back props (behind the GL body) go on the bottom 2D canvas; cleared once when unused. */
-  drawBack(species, pose, cues, stage, hoverY) {
+  drawBack(species, pose, speciesState, cues, stage, hoverY) {
     const back = this.backCtx;
     if (!back) return;
-    const needed = Boolean(cues.head);
+    const needed = Boolean(cues.head) || typeof species.drawBack === 'function';
     if (!needed && !this.backDirty) return;
     back.setTransform(1, 0, 0, 1, 0, 0);
     back.clearRect(0, 0, this.backCanvas.width, this.backCanvas.height);
@@ -115,6 +115,7 @@ export class Renderer {
     if (!needed) return;
     back.setTransform(...stage);
     applyPetTransform(back, species, pose, hoverY);
+    species.drawBack?.(back, pose, speciesState);
     drawBackProps(back, species, pose, cues);
   }
 
@@ -182,7 +183,7 @@ export class Renderer {
       this.gl.clear();
       this.partsDrawn = this.gl.draw(buildScene(this.builder.reset(stage), species, pose, speciesState, hoverY));
       this.glDirty = true;
-      this.drawBack(species, pose, cues, stage, hoverY);
+      this.drawBack(species, pose, speciesState, cues, stage, hoverY);
     } else {
       this.clearLayers();
       if (species.grounded) drawPedestal(ctx, species.palette.pedestal);

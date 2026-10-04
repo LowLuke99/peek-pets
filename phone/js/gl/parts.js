@@ -60,7 +60,7 @@ export function linear(hex) {
 // ao: ground occlusion · grain · emissive · alpha · mode: dome|bevel|inset|flat
 // depth: dome height (local units) · bevel: rounded-edge width · grad: top→bottom tint
 export const MATERIALS = Object.freeze({
-  clay: { wrap: 0.45, spec: 0.22, shine: 26, rim: 0.42, sss: 0.55, ao: 0.32, grain: 0.035, emissive: 0, alpha: 1, mode: 'dome', depth: 0.42, bevel: 0.12, grad: 0.55 },
+  clay: { wrap: 0.5, spec: 0.24, shine: 26, rim: 0.42, sss: 0.65, ao: 0.2, grain: 0.035, emissive: 0, alpha: 1, mode: 'dome', depth: 0.42, bevel: 0.12, grad: 0.55 },
   vinyl: { wrap: 0.3, spec: 0.55, shine: 70, rim: 0.5, sss: 0.25, ao: 0.28, grain: 0.015, emissive: 0, alpha: 1, mode: 'dome', depth: 0.38, bevel: 0.1, grad: 0.35 },
   plate: { wrap: 0.5, spec: 0.12, shine: 18, rim: 0.0, sss: 0.3, ao: 0.08, grain: 0.03, emissive: 0, alpha: 1, mode: 'inset', depth: 0.06, bevel: 0.035, grad: 0.3 },
   jelly: { wrap: 0.7, spec: 0.75, shine: 90, rim: 0.85, sss: 1.0, ao: 0.12, grain: 0.0, emissive: 0.2, alpha: 0.92, mode: 'dome', depth: 0.45, bevel: 0.12, grad: 0.6 },
@@ -70,10 +70,11 @@ export const MATERIALS = Object.freeze({
   fluff: { wrap: 0.65, spec: 0.1, shine: 14, rim: 0.5, sss: 0.6, ao: 0.25, grain: 0.05, emissive: 0, alpha: 1, mode: 'dome', depth: 0.4, bevel: 0.1, grad: 0.4 },
   metal: { wrap: 0.2, spec: 0.8, shine: 60, rim: 0.4, sss: 0.0, ao: 0.3, grain: 0.01, emissive: 0, alpha: 1, mode: 'bevel', depth: 0.2, bevel: 0.03, grad: 0.4 },
   flat: { wrap: 0.5, spec: 0.0, shine: 10, rim: 0.0, sss: 0.0, ao: 0.0, grain: 0.0, emissive: 0, alpha: 1, mode: 'flat', depth: 0, bevel: 0.01, grad: 0 },
-  pedestal: { wrap: 0.6, spec: 0.15, shine: 20, rim: 0.2, sss: 0.2, ao: 0.1, grain: 0.02, emissive: 0, alpha: 0.9, mode: 'bevel', depth: 0.05, bevel: 0.05, grad: 0.4 },
+  pedestal: { wrap: 0.6, spec: 0.1, shine: 20, rim: 0.15, sss: 0.2, ao: 0.08, grain: 0.02, emissive: 0, alpha: 0.75, mode: 'bevel', depth: 0.05, bevel: 0.05, grad: 0.4 },
 });
 
-export const SHAPES = Object.freeze({ blob: 0, ellipse: 1, rrect: 2, capsule: 3, balls: 4, ring: 5 });
+export const SHAPES = Object.freeze({ blob: 0, ellipse: 1, rrect: 2, capsule: 3, balls: 4, ring: 5, poly: 6 });
+export const MAX_POLY = 6;
 export const MODES = Object.freeze({ dome: 0, bevel: 1, inset: 2, flat: 3, shadow: 4, glow: 5 });
 export const MAX_BALLS = 8;
 
@@ -134,6 +135,27 @@ export class PartBuilder {
     return this.push('ring', [x, y, rx, ry, w, half], { cx: x, cy: y, hx: rx + w, hy: ry + w }, material, opts);
   }
 
+  /**
+   * Rounded polygon (≤ 6 points, like shapes.roundPolyPath). The corners are pulled in
+   * by the rounding radius so the outline stays about the same size.
+   */
+  poly(points, r, material, opts) {
+    const pts = points.slice(0, MAX_POLY);
+    const cx = pts.reduce((a, p) => a + p.x, 0) / pts.length, cy = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+    const inner = pts.map((p) => {
+      const dx = p.x - cx, dy = p.y - cy, len = Math.hypot(dx, dy) || 1;
+      const k = Math.max(0, len - r * 0.6) / len;
+      return { x: cx + dx * k, y: cy + dy * k };
+    });
+    const params = Array(16).fill(0);
+    inner.forEach((p, i) => { params[i * 2] = p.x; params[i * 2 + 1] = p.y; });
+    params[12] = inner.length;
+    params[13] = r * 0.6;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of pts) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+    return this.push('poly', params, { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, hx: (x1 - x0) / 2, hy: (y1 - y0) / 2 }, material, opts);
+  }
+
   /** Soft contact shadow on the floor (gaussian). */
   shadow({ x = 0, y = 0, rx, ry, strength = 0.3, color = '#6E2820' }) {
     return this.push('ellipse', [x, y, rx, ry], { cx: x, cy: y, hx: rx * 1.6, hy: ry * 1.6 }, { mode: 'shadow', color, alpha: strength });
@@ -150,7 +172,7 @@ export class PartBuilder {
     const part = {
       shape: SHAPES[shape],
       mode: MODES[mat.mode ?? 'dome'],
-      params: params.concat(Array(8 - params.length).fill(0)).slice(0, 8),
+      params: params.concat(Array(16).fill(0)).slice(0, 16),
       circles: opts.circles ?? null,
       box: { cx: box.cx, cy: box.cy, hx: box.hx + margin, hy: box.hy + margin },
       m: this.m,

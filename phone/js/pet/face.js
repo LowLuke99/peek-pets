@@ -127,8 +127,10 @@ function drawScleraEye(ctx, pose, f, cx, side, rawOpen) {
       ig.addColorStop(1, f.irisOut ?? '#2e1813');
       ctx.fillStyle = ig;
       ctx.beginPath(); ctx.ellipse(ix, iy, ir * fx, ir * fy, 0, 0, TAU); ctx.fill();
+      if (f.gloss !== false) irisDetail(ctx, ix, iy, ir, fx, fy, f);
       ctx.fillStyle = f.pupilColor ?? 'rgba(20,10,8,0.85)';
       ctx.beginPath(); ctx.ellipse(ix, iy, ir * 0.5 * fx, ir * 0.5 * fy, 0, 0, TAU); ctx.fill();
+      if (f.gloss !== false) wetLook(ctx, cx, cy, r, ix, iy, ir, fx, fy);
       drawHighlights(ctx, pose, cx + off.x * 0.6, cy + off.y * 0.6, ir, side);
       ctx.globalAlpha = 1;
     }
@@ -182,6 +184,42 @@ function drawBeadEye(ctx, pose, f, cx, side, rawOpen) {
   }
   if (pose.dizzy > 0.02) drawSpiral(ctx, ex, cy, ry * 0.85, pose.t * 7 * side, f.ink, pose.dizzy, f.r * 0.11);
   drawLashLine(ctx, pose, f, g, ry);
+}
+
+/** Fine radial striations and a darker limbal ring: what makes an iris read as an eye, not a dot. */
+function irisDetail(ctx, ix, iy, ir, fx, fy, f) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = f.irisFiber ?? 'rgba(255,214,170,0.16)';
+  ctx.lineWidth = ir * 0.045;
+  ctx.beginPath();
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * TAU + 0.17;
+    const r0 = ir * (0.56 + (i % 3) * 0.04), r1 = ir * (0.86 - (i % 2) * 0.08);
+    ctx.moveTo(ix + Math.cos(a) * r0 * fx, iy + Math.sin(a) * r0 * fy);
+    ctx.lineTo(ix + Math.cos(a) * r1 * fx, iy + Math.sin(a) * r1 * fy);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(15,6,4,0.38)';
+  ctx.lineWidth = ir * 0.1;
+  ctx.beginPath(); ctx.ellipse(ix, iy, ir * 0.95 * fx, ir * 0.95 * fy, 0, 0, TAU); ctx.stroke();
+  ctx.restore();
+}
+
+/** Wet glossy look: a soft reflection pooled in the lower iris and a cornea sheen across the top. */
+function wetLook(ctx, cx, cy, r, ix, iy, ir, fx, fy) {
+  ctx.save();
+  const low = ctx.createRadialGradient(ix, iy + ir * 0.62, 0, ix, iy + ir * 0.62, ir * 0.62);
+  low.addColorStop(0, 'rgba(255,236,220,0.32)');
+  low.addColorStop(1, 'rgba(255,236,220,0)');
+  ctx.fillStyle = low;
+  ctx.beginPath(); ctx.ellipse(ix, iy + ir * 0.5, ir * 0.62 * fx, ir * 0.4 * fy, 0, 0, TAU); ctx.fill();
+  const sheen = ctx.createLinearGradient(cx, cy - r, cx, cy);
+  sheen.addColorStop(0, 'rgba(255,255,255,0.2)');
+  sheen.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sheen;
+  ctx.beginPath(); ctx.ellipse(cx - r * 0.08, cy - r * 0.42, r * 0.78, r * 0.5, -0.2, 0, TAU); ctx.fill();
+  ctx.restore();
 }
 
 function drawHighlights(ctx, pose, x, y, ir, side) {

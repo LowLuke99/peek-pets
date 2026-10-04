@@ -20,6 +20,7 @@ function fit(species) {
     bottom: h.cy + h.ry,
     mitten: species.propFit?.mitten ?? species.palette.accent,
     headphones: species.propFit?.headphones !== false,
+    hands: species.propFit?.hands !== false,
   };
 }
 
@@ -30,6 +31,7 @@ export function drawBodyProps(ctx, species, pose, cues, info = {}) {
   if (cues.head === 'headphones' && f.headphones) headphones(ctx, f, pose, species.palette.accent);
   if (cues.hand === 'timer') kitchenTimer(ctx, f.side + 0.1, f.cy + 0.12, pose, info.timerProgress ?? 0, info.alarm);
   if (info.water) waterGlass(ctx, -f.side - 0.08, f.cy + 0.1, pose);
+  if (!f.hands) return; // species with real arms animate those instead
   if (pose.reach > 0.01) stretchMittens(ctx, f, pose);
   if (pose.wave > 0.01) waveMitten(ctx, f, pose);
   if (pose.point > 0.01) pointMitten(ctx, f, pose);
