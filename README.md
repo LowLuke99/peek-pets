@@ -59,6 +59,9 @@ fine; the installed app encrypts everything. Remove the certificate any time in
 | Drag a finger on the background | watches your finger |
 | **Play** | a ball to flick around: the pet tracks it and bonks it back |
 | **Cheer / Dance / Nap** | confetti, a little dance with a tune, lights-down nap |
+
+![Play, cheer, dance, nap](docs/img/actions.png)
+
 | Leave it alone ~2 min | gets sleepy, then naps (faster at night). Wakes when you return |
 | Close the PC app | looks around for it, then settles. Never sulks |
 | Avatar (top-left) | switch between 8 pets, each with its own bond level |
@@ -96,6 +99,7 @@ npm test                                  # phone logic (40 tests)
 dotnet test companion.tests               # companion (38 tests)
 node tools/e2e/live-test.mjs chromium     # end-to-end with your real cursor (moves your mouse!)
 node tools/e2e/app-mode-test.mjs          # installable app + offline
+node tools/e2e/actions-test.mjs          # dock actions, toys, petting, all pets (needs companion on :8787)
 powershell -File tools/publish.ps1        # standalone companion for a friend (no .NET needed)
 ```
 The companion serves `phone/` straight from this checkout, so edits show up on the phone after a refresh.

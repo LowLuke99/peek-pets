@@ -66,6 +66,7 @@ sheets in `Desktop\Phone Pet Prototype`.*
 | Wrong code refused, brute force rate-limited, stranger stays unpaired | pass | same |
 | Demo mode with no PC | pass | same |
 | Installed app: wss, offline cache (50 files), opens + reacts with PC **off** | 7/7 | `app-mode-test.mjs` (Chromium, test CA accepted by flag) |
+| Dock actions, ball physics, petting, nap/wake, all 8 pets switch, no page errors | 13/13 | `actions-test.mjs` |
 | Phone logic unit tests | 40/40, 92.6 % lines of `js/core` | `npm test` |
 | Companion unit tests | 38/38 (Pairing 99 %, settings 98 %) | `dotnet test companion.tests` |
 | Rendering | 60 fps (Chromium); all 8 pets × 6 expressions reviewed | `fps-probe.mjs`, `gallery.mjs` |
