@@ -1,0 +1,33 @@
+# Proves tools/mac/setup-mac.sh works on a real Mac (fresh macOS runner): checks
+# Xcode + Node, installs the app packages, syncs the web app, applies a custom bundle
+# ID, then compiles the iOS app without signing. Runs when the script changes or on demand.
+name: Mac setup check
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/mac/**', 'Set up on Mac.command', '.github/workflows/mac-setup.yml']
+
+jobs:
+  setup:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Line endings and permissions survive the trip
+        run: |
+          test -x tools/mac/setup-mac.sh
+          test -x "Set up on Mac.command"
+          ! grep -q $'\r' tools/mac/setup-mac.sh
+      - name: Run the setup script (CI mode, custom bundle ID)
+        run: ./tools/mac/setup-mac.sh --ci --bundle-id com.example.peekpetsci
+      - name: Bundle ID was applied
+        run: grep -q 'PRODUCT_BUNDLE_IDENTIFIER = com.example.peekpetsci;' app/ios/App/App.xcodeproj/project.pbxproj
+      - name: The synced project compiles (no signing)
+        run: |
+          set -o pipefail
+          xcodebuild -project app/ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 15

@@ -55,6 +55,8 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Peek Pets looks for your PC on this Wi-Fi so your pet can watch your cursor.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Shake your phone to make your pet dizzy, or tilt it to roll the ball.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_peekpets._tcp</string>

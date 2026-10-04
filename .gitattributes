@@ -2,3 +2,6 @@
 *.png binary
 *.ttf binary
 *.mp4 binary
+# Shell scripts must keep LF endings or they fail on macOS
+*.sh text eol=lf
+*.command text eol=lf
