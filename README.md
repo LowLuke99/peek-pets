@@ -32,12 +32,16 @@ and reconnects on its own when you start it again.
 ### Optional: make it a real app on the Home Screen
 Scan the **small QR** ("Install as an app") in the companion window and follow the 4 steps.
 You trust a private certificate once (it is **name-constrained to home-network addresses**,
-so it can't vouch for real websites), then *Share → Add to Home Screen*. The installed app:
+so it can't vouch for real websites). Before trusting it, compare the fingerprint the
+iPhone shows (*profile → More Details → SHA-256*) with the one in the companion window.
+Then *Share → Add to Home Screen*. The installed app:
 * opens full-screen with the Peek Pets icon,
 * **works with the PC off** (offline copy; the pet plays solo and reconnects when the PC is back),
 * can keep the screen awake properly.
 
-Quick Safari mode needs none of this. Remove the certificate any time in
+Quick Safari mode needs none of this, but it runs over plain HTTP: someone snooping on your
+Wi-Fi could see the cursor stream and the pairing token. On a trusted home network that's
+fine; the installed app encrypts everything. Remove the certificate any time in
 *Settings → General → VPN & Device Management*.
 
 ## Things to try
@@ -89,7 +93,7 @@ docs/              PROTOCOL.md, BUILD-RECORD.md, screenshots, recording
 ```
 ```
 npm test                                  # phone logic (40 tests)
-dotnet test companion.tests               # companion (34 tests)
+dotnet test companion.tests               # companion (38 tests)
 node tools/e2e/live-test.mjs chromium     # end-to-end with your real cursor (moves your mouse!)
 node tools/e2e/app-mode-test.mjs          # installable app + offline
 powershell -File tools/publish.ps1        # standalone companion for a friend (no .NET needed)

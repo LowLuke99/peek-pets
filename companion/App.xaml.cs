@@ -23,7 +23,7 @@ public partial class App : Application
         var sampler = new CursorSampler(clock);
         var facts = new FactHub(settings.IsShared);
         LocalCertificates? certs = args.ContainsKey("no-https") ? null : new LocalCertificates(args.GetValueOrDefault("cert-dir"));
-        _server = new PetServer(settings, pairing, sampler, facts, clock, certs);
+        _server = new PetServer(settings, pairing, sampler, facts, clock, certs) { LoopbackOnly = args.ContainsKey("loopback") };
 
         var window = new MainWindow(_server, pairing, settings, sampler);
         MainWindow = window;

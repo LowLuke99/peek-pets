@@ -72,7 +72,8 @@ public partial class MainWindow : Window
         if (_server.SecureEnabled)
         {
             InstallQr.Source = RenderQr($"{_baseUrl}install.html#pair={_pairing.Code}");
-            SecureText.Text = $"Secure app address: https://{new Uri(_baseUrl).Host}:{_server.SecurePort}";
+            SecureText.Text = $"Secure app address: https://{new Uri(_baseUrl).Host}:{_server.SecurePort}\n" +
+                $"Before trusting it on the iPhone, check its SHA-256 fingerprint (profile → More Details) starts with {_server.CaFingerprintShort}";
         }
         else InstallCard.Visibility = Visibility.Collapsed;
         UpdateExpiry();
@@ -194,13 +195,10 @@ public partial class MainWindow : Window
 
     private static string? FindTool(string name)
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        for (int i = 0; i < 6 && dir is not null; i++, dir = dir.Parent)
-        {
-            foreach (var candidate in new[] { Path.Combine(dir.FullName, name), Path.Combine(dir.FullName, "tools", name) })
-                if (File.Exists(candidate)) return candidate;
-        }
-        return null;
+        // Only the copy shipped next to the exe: this script runs elevated, so never
+        // pick one up from parent folders.
+        var candidate = Path.Combine(AppContext.BaseDirectory, name);
+        return File.Exists(candidate) ? candidate : null;
     }
 
     private void FollowCursor()

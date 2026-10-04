@@ -64,7 +64,7 @@ public sealed class NetworkTests
     [InlineData("172.16.5.4", true)]
     [InlineData("172.32.0.1", false)]
     [InlineData("169.254.3.3", true)]
-    [InlineData("100.100.1.1", true)]
+    [InlineData("100.100.1.1", false)] // CGNAT is not "your home network"
     [InlineData("8.8.8.8", false)]
     [InlineData("26.19.120.225", false)] // Radmin VPN range: not our LAN
     [InlineData("::1", true)]

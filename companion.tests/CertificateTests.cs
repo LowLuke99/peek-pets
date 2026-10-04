@@ -60,8 +60,30 @@ public sealed class CertificateTests : IDisposable
 
         var second = new LocalCertificates(_dir);
         Assert.Equal(thumb, second.Authority.Thumbprint);
+        Assert.False(File.Exists(Path.Combine(_dir, "ca.pfx")), "key must not be stored unencrypted");
+        Assert.Matches("^([0-9A-F]{2}:){31}[0-9A-F]{2}$", second.AuthorityFingerprint);
         Assert.DoesNotContain("PRIVATE", System.Text.Encoding.ASCII.GetString(second.AuthorityDer));
         Assert.False(new X509Certificate2(second.AuthorityDer).HasPrivateKey);
+    }
+
+    [Fact]
+    public void Legacy_unencrypted_ca_is_migrated_and_still_signs()
+    {
+        Directory.CreateDirectory(_dir);
+        using (var key = ECDsa.Create(ECCurve.NamedCurves.nistP256))
+        {
+            var req = new CertificateRequest("CN=Legacy", key, HashAlgorithmName.SHA256);
+            req.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, true, 0, true));
+            req.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign, true));
+            req.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(req.PublicKey, false));
+            using var legacy = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddYears(2));
+            File.WriteAllBytes(Path.Combine(_dir, "ca.pfx"), legacy.Export(X509ContentType.Pfx));
+        }
+        var certs = new LocalCertificates(_dir);
+        var leaf = certs.ServerCertificate([IPAddress.Parse("10.0.0.9")], "PC");
+        Assert.True(leaf.HasPrivateKey);
+        Assert.False(File.Exists(Path.Combine(_dir, "ca.pfx")));
+        Assert.True(File.Exists(Path.Combine(_dir, "ca.pfx.dpapi")));
     }
 
     private static IEnumerable<string> SanText(X509Certificate2 cert) =>

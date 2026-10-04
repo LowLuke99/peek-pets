@@ -23,6 +23,7 @@ public sealed class PetServer : IAsyncDisposable
     public const int ProtocolVersion = 1;
     public const int MaxSessions = 8;
     private const int MaxMessageBytes = 8 * 1024;
+    private const int MaxUnauthedPerIp = 2;
     private static readonly TimeSpan AuthTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan SilenceTimeout = TimeSpan.FromSeconds(20);
 
@@ -42,6 +43,9 @@ public sealed class PetServer : IAsyncDisposable
     /// <summary>HTTPS port for the installable app mode (always Port + 1).</summary>
     public int SecurePort => _settings.Port + 1;
     public bool SecureEnabled { get; private set; }
+    public string CaFingerprintShort => _certs?.AuthorityFingerprint[..23] ?? "";
+    /// <summary>Bind to 127.0.0.1 only (testing; no phones, no firewall prompt).</summary>
+    public bool LoopbackOnly { get; init; }
     public string Version { get; } = typeof(PetServer).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
 
     public event Action? SessionsChanged;
@@ -73,8 +77,9 @@ public sealed class PetServer : IAsyncDisposable
         builder.Logging.ClearProviders();
         builder.WebHost.ConfigureKestrel(k =>
         {
-            k.ListenAnyIP(_settings.Port);
-            if (_certs is null) return;
+            if (LoopbackOnly) k.ListenLocalhost(_settings.Port);
+            else k.ListenAnyIP(_settings.Port);
+            if (_certs is null || LoopbackOnly) return;
             try
             {
                 _ = _certs.ServerCertificate(CurrentLan(), Environment.MachineName); // fail early, not mid-handshake
@@ -103,7 +108,12 @@ public sealed class PetServer : IAsyncDisposable
         });
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
 
-        app.MapGet("/api/info", () => Results.Json(new { app = "peek-pets", name = "Peek Pets Companion", version = Version, proto = ProtocolVersion, securePort = SecureEnabled ? SecurePort : (int?)null }));
+        app.MapGet("/api/info", () => Results.Json(new
+        {
+            app = "peek-pets", name = "Peek Pets Companion", version = Version, proto = ProtocolVersion,
+            securePort = SecureEnabled ? SecurePort : (int?)null,
+            caFingerprint = SecureEnabled ? _certs?.AuthorityFingerprint : null,
+        }));
         app.MapGet("/api/assets", () => Results.Json(AssetManifest()));
         if (_certs is not null)
         {
@@ -125,7 +135,12 @@ public sealed class PetServer : IAsyncDisposable
     private async Task HandleSocketAsync(HttpContext ctx)
     {
         if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
+        // Only our own page may open the socket: blocks other websites (and DNS rebinding)
+        // from poking the pairing endpoint through a browser on the LAN.
+        if (!SameOrigin(ctx)) { ctx.Response.StatusCode = StatusCodes.Status403Forbidden; return; }
+        var remote = ctx.Connection.RemoteIpAddress ?? IPAddress.None;
         if (Sessions.Count >= MaxSessions) { ctx.Response.StatusCode = 503; return; }
+        if (Sessions.Count(s => !s.IsAuthed && s.Ip.Equals(remote)) >= MaxUnauthedPerIp) { ctx.Response.StatusCode = 429; return; }
 
         using var socket = await ctx.WebSockets.AcceptWebSocketAsync();
         var ip = ctx.Connection.RemoteIpAddress ?? IPAddress.None;
@@ -157,10 +172,14 @@ public sealed class PetServer : IAsyncDisposable
     private async Task ReceiveLoopAsync(WebSocket socket, ClientSession session, CancellationToken ct)
     {
         var buffer = new byte[MaxMessageBytes];
+        // Hard deadline: an unauthenticated socket gets AuthTimeout in total, however chatty.
+        var authDeadline = _clock.Elapsed + AuthTimeout;
         while (socket.State == WebSocketState.Open)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(session.IsAuthed ? SilenceTimeout : AuthTimeout);
+            var left = session.IsAuthed ? SilenceTimeout : authDeadline - _clock.Elapsed;
+            if (left <= TimeSpan.Zero) { await session.CloseAsync("auth_timeout"); return; }
+            timeout.CancelAfter(left);
             int count = 0;
             ValueWebSocketReceiveResult result;
             do
@@ -301,7 +320,30 @@ public sealed class PetServer : IAsyncDisposable
         virt = new { x = layout.Virtual.X, y = layout.Virtual.Y, w = layout.Virtual.W, h = layout.Virtual.H },
     };
 
-    private static List<System.Net.IPAddress> CurrentLan() => NetworkInfo.LanAddresses().Select(a => a.Address).ToList();
+    private List<IPAddress> _lanCache = [];
+    private TimeSpan? _lanCachedAt; // null = never fetched (TimeSpan.MinValue would overflow on subtraction)
+
+    /// <summary>LAN addresses for the TLS certificate, refreshed at most every 30 s (called per handshake).</summary>
+    private List<IPAddress> CurrentLan()
+    {
+        lock (_gate)
+        {
+            if (_lanCachedAt is not { } at || _clock.Elapsed - at > TimeSpan.FromSeconds(30))
+            {
+                _lanCache = NetworkInfo.LanAddresses().Select(a => a.Address).ToList();
+                _lanCachedAt = _clock.Elapsed;
+            }
+            return _lanCache;
+        }
+    }
+
+    internal static bool SameOrigin(HttpContext ctx)
+    {
+        var origin = ctx.Request.Headers.Origin.ToString();
+        if (string.IsNullOrEmpty(origin)) return true; // non-browser clients
+        return Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+            && string.Equals(uri.Authority, ctx.Request.Host.Value, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Every phone file + a version hash. The phone's service worker precaches these so

@@ -61,9 +61,7 @@ public static class NetworkInfo
         if (ip.AddressFamily == AddressFamily.InterNetwork)
         {
             var b = ip.GetAddressBytes();
-            return IsLanV4(ip)
-                || (b[0] == 169 && b[1] == 254)            // link-local
-                || (b[0] == 100 && b[1] >= 64 && b[1] <= 127); // CGNAT / tailnets
+            return IsLanV4(ip) || (b[0] == 169 && b[1] == 254); // private ranges + link-local
         }
         if (ip.AddressFamily == AddressFamily.InterNetworkV6)
         {
@@ -85,7 +83,7 @@ public static class NetworkInfo
             $cat = "$($p.NetworkCategory)" -replace 'DomainAuthenticated','Domain'
             function Active($r) { $r.Enabled -eq 'True' -and $r.Direction -eq 'Inbound' -and ("$($r.Profile)" -eq 'Any' -or "$($r.Profile)" -match $cat) }
             $byPort = @(Get-NetFirewallPortFilter -Protocol TCP | Where-Object { $_.LocalPort -contains '{{port}}' } | Get-NetFirewallRule | Where-Object { Active $_ })
-            $byApp = @(Get-NetFirewallApplicationFilter -Program '{{exePath.Replace("'", "''")}}' | Get-NetFirewallRule | Where-Object { Active $_ })
+            $byApp = @(Get-NetFirewallApplicationFilter -Program $env:PEEK_EXE | Get-NetFirewallRule | Where-Object { Active $_ })
             $portOk = @(($byPort + $byApp) | Where-Object { $_.Action -eq 'Allow' }).Count -gt 0
             $blocked = @(($byPort + $byApp) | Where-Object { $_.Action -eq 'Block' }).Count -gt 0
             "$($p.Name)|$($p.NetworkCategory)|$portOk|$blocked"
@@ -96,6 +94,7 @@ public static class NetworkInfo
             {
                 RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true,
             };
+            psi.Environment["PEEK_EXE"] = exePath; // passed as data, never spliced into the script
             using var proc = Process.Start(psi)!;
             string output = (await proc.StandardOutput.ReadToEndAsync()).Trim();
             await proc.WaitForExitAsync();

@@ -8,6 +8,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, rmSync, readdirSync, renameSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { networkInterfaces } from 'node:os';
+import http from 'node:http';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -233,6 +234,18 @@ try {
   check('repeated wrong codes get rate-limited', reasons.some((r) => /too many/i.test(r)), reasons.at(-1));
   await sp.screenshot({ path: join(OUT, '06-bad-code.png') });
   await stranger.close();
+
+  // 8b. Cross-site pages can't open the socket (Origin check / DNS-rebinding guard)
+  const foreign = await new Promise((resolve) => {
+    const req = http.request({ host: HOST, port: PORT, path: '/ws', headers: {
+      Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Version': '13',
+      'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==', Origin: 'http://evil.example' } });
+    req.on('response', (r) => resolve(r.statusCode));
+    req.on('upgrade', () => resolve(101));
+    req.on('error', () => resolve(-1));
+    req.end();
+  });
+  check('socket from a foreign website is refused', foreign === 403, `HTTP ${foreign}`);
 
   // 9. Demo mode works with no PC
   const solo = await browser.newContext({ ...devices['iPhone 15'] });

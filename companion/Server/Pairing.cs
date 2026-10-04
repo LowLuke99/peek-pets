@@ -33,11 +33,14 @@ public sealed class Pairing
     public const int MaxFailuresPerWindow = 5;
     public static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(1);
     public static readonly TimeSpan Lockout = TimeSpan.FromMinutes(1);
+    /// <summary>Across all addresses: past this many failures a minute the code is rotated.</summary>
+    public const int GlobalFailureBudget = 20;
 
     private readonly CompanionSettings _settings;
     private readonly Func<DateTime> _now;
     private readonly Dictionary<IPAddress, List<DateTime>> _failures = new();
     private readonly Dictionary<IPAddress, DateTime> _lockedUntil = new();
+    private readonly List<DateTime> _globalFailures = [];
     private readonly object _gate = new();
     private readonly string? _fixedCode;
 
@@ -98,8 +101,9 @@ public sealed class Pairing
                 LastSeen = _now(),
             };
             _settings.Devices.Add(device);
-            _failures.Remove(ip);
+            _failures.Remove(Key(ip));
             _settings.Save();
+            NewCode(); // single use: a second phone needs the fresh code on screen
             DevicesChanged?.Invoke();
             return new(AuthError.None, device, token);
         }
@@ -130,11 +134,12 @@ public sealed class Pairing
 
     public IReadOnlyList<PairedDevice> Devices { get { lock (_gate) return _settings.Devices.ToList(); } }
 
-    private bool IsLocked(IPAddress ip) => _lockedUntil.TryGetValue(ip, out var until) && _now() < until;
+    private bool IsLocked(IPAddress ip) => _lockedUntil.TryGetValue(Key(ip), out var until) && _now() < until;
 
-    private void RecordFailure(IPAddress ip)
+    private void RecordFailure(IPAddress rawIp)
     {
         var now = _now();
+        var ip = Key(rawIp);
         if (!_failures.TryGetValue(ip, out var list)) _failures[ip] = list = [];
         list.RemoveAll(t => now - t > FailureWindow);
         list.Add(now);
@@ -143,6 +148,32 @@ public sealed class Pairing
             _lockedUntil[ip] = now + Lockout;
             list.Clear();
         }
+
+        // Address-hopping attackers still hit the global budget, which burns the code.
+        _globalFailures.RemoveAll(t => now - t > FailureWindow);
+        _globalFailures.Add(now);
+        if (_globalFailures.Count >= GlobalFailureBudget)
+        {
+            _globalFailures.Clear();
+            NewCode();
+        }
+        if (_failures.Count > 256) Prune(now);
+    }
+
+    private void Prune(DateTime now)
+    {
+        foreach (var k in _failures.Where(kv => kv.Value.All(t => now - t > FailureWindow)).Select(kv => kv.Key).ToList()) _failures.Remove(k);
+        foreach (var k in _lockedUntil.Where(kv => kv.Value <= now).Select(kv => kv.Key).ToList()) _lockedUntil.Remove(k);
+    }
+
+    /// <summary>Rate-limit key: IPv4 as-is, IPv6 by /64 (one device can own a whole /64).</summary>
+    internal static IPAddress Key(IPAddress ip)
+    {
+        if (ip.IsIPv4MappedToIPv6) return ip.MapToIPv4();
+        if (ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) return ip;
+        var b = ip.GetAddressBytes();
+        Array.Clear(b, 8, 8);
+        return new IPAddress(b);
     }
 
     private static string RandomCode()

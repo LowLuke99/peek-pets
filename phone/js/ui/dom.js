@@ -20,8 +20,8 @@ export function h(tag, attrs = {}, ...children) {
 
 export const $ = (sel) => document.querySelector(sel);
 
-export function row(label, sub, control) {
-  return h('div', { class: 'row' }, h('div', {}, label, sub ? h('small', { text: sub }) : null), control);
+export function row(label, sub, control, { stack = false } = {}) {
+  return h('div', { class: stack ? 'row row--stack' : 'row' }, h('div', {}, label, sub ? h('small', { text: sub }) : null), control);
 }
 
 export function toggle(checked, onChange, label) {

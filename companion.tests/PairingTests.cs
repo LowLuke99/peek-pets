@@ -120,6 +120,32 @@ public sealed class PairingTests : IDisposable
         Assert.False(settings.IsShared("load"));
     }
 
+    [Fact]
+    public void Successful_pairing_rotates_the_code()
+    {
+        var (pairing, _) = Make(code: null);
+        var first = pairing.Code;
+        Assert.True(pairing.PairWithCode(first, Phone, "a").Ok);
+        Assert.NotEqual(first, pairing.Code);
+        Assert.Equal(AuthError.BadCode, pairing.PairWithCode(first, IPAddress.Parse("10.0.0.77"), "b").Error);
+    }
+
+    [Fact]
+    public void Address_hopping_brute_force_burns_the_code()
+    {
+        var (pairing, _) = Make(code: null);
+        var code = pairing.Code;
+        for (int i = 0; i < Pairing.GlobalFailureBudget; i++) pairing.PairWithCode("ZZZZZZ", IPAddress.Parse($"10.0.1.{i + 1}"), null);
+        Assert.NotEqual(code, pairing.Code);
+    }
+
+    [Fact]
+    public void Ipv6_addresses_in_one_slash64_share_a_rate_limit()
+    {
+        Assert.Equal(Pairing.Key(IPAddress.Parse("fd00:1:2:3::5")), Pairing.Key(IPAddress.Parse("fd00:1:2:3:ffff::9")));
+        Assert.NotEqual(Pairing.Key(IPAddress.Parse("fd00:1:2:3::5")), Pairing.Key(IPAddress.Parse("fd00:1:2:4::5")));
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }

@@ -67,10 +67,10 @@ sheets in `Desktop\Phone Pet Prototype`.*
 | Demo mode with no PC | pass | same |
 | Installed app: wss, offline cache (50 files), opens + reacts with PC **off** | 7/7 | `app-mode-test.mjs` (Chromium, test CA accepted by flag) |
 | Phone logic unit tests | 40/40, 92.6 % lines of `js/core` | `npm test` |
-| Companion unit tests | 34/34 (Pairing 99 %, settings 98 %) | `dotnet test companion.tests` |
+| Companion unit tests | 38/38 (Pairing 99 %, settings 98 %) | `dotnet test companion.tests` |
 | Rendering | 60 fps (Chromium); all 8 pets × 6 expressions reviewed | `fps-probe.mjs`, `gallery.mjs` |
 
-Live test: 22/22 in **WebKit** (Safari's engine, iPhone 15 profile) and 22/22 in Chromium.
+Live test: 23/23 in **WebKit** (Safari's engine, iPhone 15 profile) and 23/23 in Chromium (incl. foreign-origin socket refused).
 Recording: `docs/media/live-test-chromium.mp4`, `docs/media/eyes-follow-cursor.gif`.
 
 ## Not verified on a real iPhone (please check)
@@ -88,6 +88,18 @@ connecting to the PC's LAN IP). Specifically unproven:
 5. Safari's rendering speed. WebKit on Windows renders in software at ~10 fps, so motion
    smoothness was judged in Chromium (60 fps). iPhones GPU-accelerate canvas; I expect 60 fps.
 6. Sound on iOS: Web Audio unlocks on first tap; the silent switch may mute it.
+
+## Security review (done in-session)
+A security reviewer pass found no critical issues; the phone side was XSS-clean (all PC text goes
+through `textContent`). Fixed from its findings: CA fingerprint shown for out-of-band
+checking; hard 10 s deadline + per-IP cap for unauthenticated sockets; pairing code is single-use
+and rotates on success or after 20 failures/min from anywhere (beats address hopping); IPv6
+rate-limited per /64; CA key DPAPI-encrypted at rest and non-exportable in memory; WebSocket
+`Origin` check (blocks cross-site pages / DNS rebinding); thread-safe cached TLS cert selection;
+firewall check no longer splices a path into a PowerShell script; elevated helper only runs from
+next to the exe; CGNAT removed from "local network"; install page validates its inputs.
+Accepted: quick mode is plain HTTP on the LAN (use the installed app for encryption), and the
+firewall rule uses profile *Any* because this Wi-Fi is marked Public (it stays subnet-scoped).
 
 ## Known limitations
 * The installed app's address includes the PC's IP. If your router hands the PC a new IP,
