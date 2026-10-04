@@ -50,7 +50,7 @@ export const ember = {
   shadowW: 0.32,
   hit: { cx: 0, cy: -0.05, rx: 0.4, ry: 0.45 },
   face: { lx: -0.12, rx: 0.12, y: 0.04, r: 0.085 },
-  lines: { hello: ['*crackle* Hi!', 'Warm hello!'], nap: ['Banking the coals…'], disconnect: ['Flicker… where did it go?'] },
+  lines: { hello: ['*crackle* Hi!', 'Warm hello!'], nap: ['Banking the coals…'], disconnect: ['Flicker… where did it go?'], snackFav: ['CHILI! *roars happily*', 'Spicy is my favourite!'] },
   init: () => ({ flick: 0 }),
   step: (s, pose, dt) => ({ flick: s.flick + dt * (1 + pose.energy * 1.5) }),
 

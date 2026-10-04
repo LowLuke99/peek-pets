@@ -6,6 +6,7 @@
 //   • "classic": everything on the 2D canvas (automatic fallback).
 
 import { drawBodyProps, drawWorldProps, drawBackProps } from './props.js';
+import { drawOutfit } from './outfit.js';
 import { GLStage } from '../gl/glstage.js';
 import { PartBuilder } from '../gl/parts.js';
 import { buildScene, applyPetTransform } from '../gl/scene.js';
@@ -168,7 +169,7 @@ export class Renderer {
     return { part: 'body' };
   }
 
-  /** @param {{cues?: object, info?: object}} [props] what the helpful powers want the pet to hold/wear */
+  /** @param {{cues?: object, info?: object, outfit?: object}} [props] what the pet holds (powers) and wears (wardrobe) */
   draw(species, pose, speciesState, particles, toys, props = null) {
     const { ctx, dpr, S } = this;
     const stage = [dpr * S, 0, 0, dpr * S, dpr * this.ox, dpr * this.oy];
@@ -199,6 +200,7 @@ export class Renderer {
       species.draw(ctx, pose, speciesState);
     }
     drawBodyProps(ctx, species, pose, cues, props?.info);
+    drawOutfit(ctx, species, pose, props?.outfit);
     ctx.restore();
 
     drawWorldProps(ctx, species, pose, cues, props?.info);

@@ -18,6 +18,13 @@ export const LINES = {
   hello: ['Hi there!', 'Hello!', 'Oh, hi!'],
   morning: ['Good morning!'],
   night: ['Getting sleepy…'],
+  snackYum: ['Mmm, {snack}!', 'Nom nom nom', 'Yummy! Thank you!'],
+  snackFav: ['My favourite!!', 'You remembered! ♥', 'Best. Snack. Ever.'],
+  snackSpicy: ['SPICY!!', 'Hot hot hot!', 'Water! Waaater!'],
+  snackFull: ["I'm stuffed… maybe later?", 'So full… *pats tummy*', 'No more room!'],
+  shake: ['Whoa! Earthquake!', 'Everything is spinning!', 'Stop shaking meee!'],
+  cheese: ['Say cheese!', 'Ooh, a photo!', '*strikes a pose*'],
+  outfit: ['How do I look?', 'Fancy!', 'I love it!'],
 };
 
 export function pickLine(key, vars = {}, species = null, rand = Math.random) {

@@ -27,8 +27,9 @@ import { PowerGlue } from './powers/glue.js';
 import { powersSheet } from './ui/powersSheet.js';
 import { nativePairSheet } from './ui/nativePair.js';
 import { isNative, discoverPcs, haptic } from './native.js';
+import { PlayGlue } from './play/glue.js';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 const BUBBLE_COOLDOWN_MS = 4500;
 const IMPORTANT_BUBBLES = new Set(['connect', 'disconnect', 'pc-closed', 'levelup', 'say']);
 
@@ -81,6 +82,8 @@ export class App {
       onMessage: (m) => this.onLinkMessage(m),
     });
     this.glue = new PowerGlue(this);
+    this.play = new PlayGlue(this);
+    this.toys = { draw: (ctx) => this.play.drawToys(ctx) };
     this.setSpecies(this.settings.pet, { quiet: true });
     this.applySettings();
     this.wireInput();
@@ -130,17 +133,19 @@ export class App {
     this.emotion = currentEmotion(this.mood, ctx, wall);
 
     const { target, source } = this.pickGaze(now);
-    const pose = this.rig.update(dt, { emotion: this.emotion, gazeTarget: target, source, reducedMotion: this.settings.reducedMotion });
+    const pose = this.play.applyToPose(this.rig.update(dt, { emotion: this.emotion, gazeTarget: target, source, reducedMotion: this.settings.reducedMotion }));
     this.pose = pose;
     this.speciesState = this.species.step(this.speciesState, pose, dt);
 
+    this.play.frame(dt);
     this.updateBall(dt, pose);
     this.ambientParticles(dt, pose);
     this.particles.update(dt);
     const props = this.glue.frame(dt, wall);
     this.renderer.setInset(this.glue.card.visible ? this.ui.nudgeInset() : 0);
     this.renderer.tick(dt);
-    this.renderer.draw(this.species, pose, this.speciesState, this.particles, this.ball, props);
+    this.renderer.draw(this.species, pose, this.speciesState, this.particles, this.toys, { ...props, outfit: this.play.outfit });
+    this.play.afterDraw(now);
     this.previews.update(dt, this.rig.gaze, this.emotion);
 
     if (this.ui.bubbleVisible) {
@@ -153,7 +158,7 @@ export class App {
   }
 
   restful() {
-    return this.emotion === 'asleep' && !this.particles.active && !this.ball.active && !this.ui.bubbleVisible && !this.glue.card.visible;
+    return this.emotion === 'asleep' && !this.particles.active && !this.ball.active && !this.ui.bubbleVisible && !this.glue.card.visible && !this.play.busy;
   }
 
   trackPerformance(dt) {
@@ -188,6 +193,11 @@ export class App {
     if (this.emotion === 'asleep') return { target: null, source: 'idle' };
     const face = this.faceScreen();
     if (this.touchLook) return { target: pointToGaze(this.touchLook.x, this.touchLook.y, face.x, face.y, this.renderer.S), source: 'touch' };
+    const snack = this.play.lookPoint();
+    if (snack) {
+      const p = this.renderer.toScreen(snack.x, snack.y);
+      return { target: pointToGaze(p.x, p.y, face.x, face.y, this.renderer.S), source: 'toy' };
+    }
     if (this.ball.active && (this.ball.moving || this.heldBall)) {
       const b = this.renderer.toScreen(this.ball.x, this.ball.y);
       return { target: pointToGaze(b.x, b.y, face.x, face.y, this.renderer.S), source: 'toy' };
@@ -346,6 +356,7 @@ export class App {
   }
 
   addBond(amount) {
+    const bestBefore = this.play.bestLevel();
     const next = addHearts(this.bond, amount);
     this.bonds = { ...this.bonds, [this.species.id]: { hearts: next.hearts, level: next.level } };
     clearTimeout(this.bondSave);
@@ -357,11 +368,13 @@ export class App {
       const top = this.headStage();
       this.particles.burst('confetti', top.x, top.y, 26, { speed: 1.6, spread: 2.4 });
       this.rig.hopUp(1);
+      this.play.onLevelUp(bestBefore, this.play.bestLevel());
     }
   }
 
   action(name, btn) {
     this.sfx.unlock();
+    if (this.play.action(name)) return;
     const top = this.headStage();
     switch (name) {
       case 'play':
@@ -423,6 +436,7 @@ export class App {
       onAnyTouch: () => {
         this.sfx.unlock();
         if (this.settings.awake) this.awake.enable();
+        if (this.settings.motion && !this.play.motion.on) this.play.motion.enable();
       },
       onTap: (hit) => this.onTap(hit),
       onDoubleTap: (hit) => {
@@ -582,6 +596,11 @@ export class App {
     this.applySettings();
     if (key === 'demo' && !value) this.cursor.reset();
     if (key === 'awake') { if (value) this.awake.enable(); else this.awake.disable(); }
+    if (key === 'motion') {
+      this.play.setMotion(value).then((ok) => {
+        if (value && !ok) { this.settings = { ...this.settings, motion: false }; saveSettings(this.settings); if (this.ui.sheetKind === 'settings') this.openSheet('settings'); }
+      });
+    }
   }
 
   applySettings() {
@@ -595,6 +614,10 @@ export class App {
   openSheet(kind, focus) {
     this.sheetDispose?.();
     this.sheetDispose = null;
+    if (kind === 'style') {
+      this.ui.openSheet('style', 'Style', this.play.styleSheet());
+      return;
+    }
     if (kind === 'powers') {
       const sheet = powersSheet({ glue: this.glue, focus });
       this.ui.openSheet('powers', 'Powers', sheet.el);

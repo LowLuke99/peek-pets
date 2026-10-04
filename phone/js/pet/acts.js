@@ -1,6 +1,7 @@
 // One-shot "performances" layered on top of the rig: stretch, yawn, look far away,
-// wave, point, alarm shake. Each has a smooth envelope (so it eases in and out of
-// whatever the pet was doing) and overrides a few pose/face channels while it plays.
+// wave, point, alarm shake, and eating (aah → chew, or a polite "nope"). Each has a
+// smooth envelope (so it eases in and out of whatever the pet was doing) and
+// overrides a few pose/face channels while it plays.
 
 import { smoothstep } from '../core/spring.js';
 
@@ -11,6 +12,9 @@ export const ACTS = Object.freeze({
   wave: { dur: 2.4, rise: 0.3, fall: 0.4 },
   point: { dur: 2.6, rise: 0.25, fall: 0.4 },
   shake: { dur: 1.3, rise: 0.05, fall: 0.3 },
+  aah: { dur: 0.7, rise: 0.15, fall: 0.08 },
+  chew: { dur: 1.7, rise: 0.08, fall: 0.3 },
+  nope: { dur: 1.1, rise: 0.15, fall: 0.3 },
 });
 
 /** Returns a new acts map with `name` (re)started at time t. */
@@ -88,6 +92,31 @@ export function applyActs(pose, lv, t) {
     p.eyeL = Math.max(p.eyeL, 1.2 * sh);
     p.eyeR = Math.max(p.eyeR, 1.2 * sh);
     p.mouthO = Math.max(p.mouthO, 0.7 * sh);
+  }
+  const aah = lv.aah ?? 0;
+  if (aah > 0) {
+    p.mouthO = Math.max(p.mouthO, aah);
+    p.eyeL = Math.max(p.eyeL, 1.12 * aah);
+    p.eyeR = Math.max(p.eyeR, 1.12 * aah);
+    p.sy *= 1 + 0.04 * aah;
+  }
+  const chew = lv.chew ?? 0;
+  if (chew > 0) {
+    const munch = Math.abs(Math.sin(t * 11));
+    p.mouthO *= 1 - chew;
+    p.mouthOpen = p.mouthOpen * (1 - chew) + munch * 0.32 * chew;
+    p.smile = Math.max(p.smile, 0.7 * chew);
+    p.happy = Math.max(p.happy, 0.85 * chew);
+    p.blush = Math.max(p.blush ?? 0, 0.8 * chew);
+    p.sx *= 1 + (0.035 + munch * 0.025) * chew; // puffed cheeks
+    p.sy *= 1 - munch * 0.025 * chew;
+  }
+  const nope = lv.nope ?? 0;
+  if (nope > 0) {
+    p.rot += Math.sin(t * 13) * 0.07 * nope;
+    p.x += Math.sin(t * 13) * 0.012 * nope;
+    p.happy = Math.max(p.happy, 0.6 * nope);
+    p.smile = Math.max(p.smile, 0.4 * nope);
   }
   return p;
 }

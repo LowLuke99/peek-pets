@@ -61,6 +61,7 @@ export class Sfx {
       case 'chime': [784, 1046, 1318].forEach((f, i) => this.tone(i * 0.12, f, 0.32, 0.45, 'sine')); break;
       case 'tada': [523, 659, 784].forEach((f, i) => this.tone(i * 0.08, f, 0.12, 0.5, 'triangle')); this.tone(0.26, 1046, 0.45, 0.6, 'triangle'); break;
       case 'alarm': for (let i = 0; i < 6; i++) this.tone(i * 0.16, i % 2 ? 1175 : 1397, 0.12, 0.5, 'square'); break;
+      case 'shutter': this.tone(0, 2200, 0.03, 0.35, 'square', 900); this.tone(0.07, 1600, 0.05, 0.3, 'square', 700); break;
       case 'swoosh': this.tone(0, 300, 0.25, 0.35, 'sine', 1400); break;
       case 'nudge': this.tone(0, 880, 0.09, 0.4, 'sine'); this.tone(0.1, 660, 0.14, 0.4, 'sine'); break;
       default: break;

@@ -264,7 +264,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   transform: translateX(-50%);
   width: min(420px, calc(100vw - 32px));
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   padding: 8px;
   border-radius: 30px;
@@ -597,3 +597,74 @@ body:has(.nudge:not([hidden])) .tray { opacity: 0; pointer-events: none; }
 .pc { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; padding: 10px 14px; border-radius: 16px; border: 2px solid transparent; background: #fff; box-shadow: 0 4px 14px rgba(122, 59, 42, 0.06); font-weight: 800; cursor: pointer; text-align: left; }
 .pc small { font-weight: 700; color: var(--ink-soft); }
 .pc[aria-selected="true"] { border-color: var(--accent); }
+
+/* ---------- v3: snacks, wardrobe, photo ---------- */
+.snackbar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 104px);
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 30px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: var(--shadow);
+  animation: snack-in 0.32s var(--ease-spring);
+  z-index: 6;
+}
+.snackbar[hidden] { display: none; }
+@keyframes snack-in { from { opacity: 0; transform: translate(-50%, 14px) scale(0.92); } }
+.snack {
+  position: relative;
+  width: 54px; height: 54px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform 0.3s var(--ease-spring), background 0.2s;
+}
+.snack__emoji { font-size: 30px; line-height: 1; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
+.snack:active { transform: scale(0.86) rotate(-8deg); }
+.snack:hover { background: #fff; }
+.snack:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 70%, white); outline-offset: 2px; }
+.snack__fav { position: absolute; top: 1px; right: 3px; font-style: normal; font-size: 13px; color: var(--accent); }
+.dock__btn { font-size: 12.5px; }
+
+.flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 40; }
+.flash.is-on { animation: flash 0.55s ease-out; }
+@keyframes flash { 0% { opacity: 0.95; } 100% { opacity: 0; } }
+
+.btn--photo { width: 100%; margin: 4px 0 18px; }
+.lead--small { font-size: 13px; margin-top: 2px; }
+.wardrobe { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-top: 10px; }
+.wear {
+  position: relative;
+  border: 2px solid transparent;
+  border-radius: 20px;
+  background: #fff;
+  padding: 6px 6px 9px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  box-shadow: 0 4px 14px rgba(122, 59, 42, 0.06);
+  font: inherit;
+  color: var(--ink);
+  transition: transform 0.3s var(--ease-spring), border-color 0.2s;
+}
+.wear canvas { width: 66px; height: 66px; }
+.wear b { font-size: 13px; font-weight: 900; }
+.wear:active { transform: scale(0.94); }
+.wear[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, white); }
+.wear:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 70%, white); outline-offset: 2px; }
+.wear--locked { cursor: default; background: rgba(255, 255, 255, 0.55); }
+.wear--locked canvas { filter: grayscale(1) opacity(0.35); }
+.wear__lock { font-size: 11.5px; font-weight: 800; color: var(--ink-soft); }
+.photo { display: block; width: 100%; border-radius: 6px; box-shadow: 0 10px 30px rgba(80, 30, 20, 0.18); transform: rotate(-1.2deg); margin: 6px 0 4px; }
+a.btn { text-align: center; text-decoration: none; }

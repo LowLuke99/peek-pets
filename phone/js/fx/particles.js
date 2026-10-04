@@ -17,6 +17,8 @@ const KINDS = {
   ember: { life: 1.3, g: -0.45, drag: 0.8, size: 0.018, color: '#FFB347' },
   bubble: { life: 2.2, g: -0.12, drag: 0.4, size: 0.025, color: '#BFE6FF' },
   rain: { life: 0.7, g: 1.4, drag: 0, size: 0.012, color: '#9CC8F0' },
+  crumb: { life: 0.9, g: 2.2, drag: 0.6, size: 0.016, color: '#C98B4E' },
+  steam: { life: 1.5, g: -0.35, drag: 1.2, size: 0.05, color: 'rgba(255,255,255,0.85)' },
 };
 const CONFETTI = ['#F2735F', '#FFD36B', '#7BD3B0', '#8EA8FF', '#FF9CC2'];
 
@@ -97,6 +99,8 @@ export class Particles {
         case 'drop': drop(ctx, s); break;
         case 'ember': ctx.beginPath(); ctx.arc(0, 0, s * (1 - u * 0.6), 0, TAU); ctx.fill(); break;
         case 'bubble': ctx.lineWidth = s * 0.25; ctx.beginPath(); ctx.arc(0, 0, s, 0, TAU); ctx.stroke(); break;
+        case 'crumb': ctx.rotate(p.rot); ctx.fillRect(-s, -s * 0.7, s * 2, s * 1.4); break;
+        case 'steam': ctx.beginPath(); ctx.arc(0, 0, s * (0.6 + u), 0, TAU); ctx.arc(s * 0.7, -s * 0.3, s * (0.4 + u * 0.8), 0, TAU); ctx.fill(); break;
         case 'rain': ctx.lineWidth = s * 0.8; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, s * 4); ctx.stroke(); break;
         default: break;
       }

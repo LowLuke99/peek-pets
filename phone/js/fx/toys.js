@@ -16,6 +16,7 @@ export class Ball {
     this.lastHit = -10;
     this.t = 0;
     this.squash = 0;
+    this.tilt = 0; // sideways gravity from tilting the phone (-1..1)
   }
 
   spawn(bounds) {
@@ -60,6 +61,7 @@ export class Ball {
     if (held) return [];
     const events = [];
     this.vy += GRAVITY * dt;
+    this.vx += this.tilt * GRAVITY * 0.9 * dt;
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     this.rot += this.spin * dt;

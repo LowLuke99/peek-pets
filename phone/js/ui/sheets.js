@@ -93,6 +93,7 @@ export function settingsSheet({ settings, onSetting, onPairTap, pcLabel, version
       h('div', { class: 'card' },
         row('Reduce motion', 'Calmer bouncing and idle wandering', toggle(settings.reducedMotion, (v) => onSetting('reducedMotion', v), 'Reduce motion')),
         row('Sounds', null, toggle(settings.sound, (v) => onSetting('sound', v), 'Sounds')),
+        row('Shake & tilt', 'Shake the phone to make your pet dizzy; tilt it to roll the ball', toggle(settings.motion, (v) => onSetting('motion', v), 'Shake and tilt')),
         row('Keep screen on', 'Best effort while the pet is open', toggle(settings.awake, (v) => onSetting('awake', v), 'Keep screen on')),
         row('Show link stats', 'Latency and frame-rate overlay', toggle(settings.debug, (v) => onSetting('debug', v), 'Show link stats')),
       ),
