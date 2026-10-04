@@ -66,8 +66,17 @@
   <section id="nudge" class="nudge" role="status" aria-live="polite" hidden></section>
 
   <div id="snackbar" class="snackbar" role="group" aria-label="Pick a snack" hidden></div>
+  <div id="playbar" class="snackbar" role="group" aria-label="Pick a game" hidden></div>
+  <div id="gamelayer" class="gamelayer" hidden></div>
+  <div id="gamehud" class="gamehud" hidden>
+    <b id="gameScore">0</b><span id="gameInfo"></span>
+    <button id="gameQuit" class="icon-btn icon-btn--small" type="button" aria-label="Quit game">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" class="stroke"/></svg>
+    </button>
+  </div>
+  <section id="gameover" class="gameover" role="status" aria-live="polite" hidden></section>
   <nav class="dock" aria-label="Pet actions">
-    <button class="dock__btn" type="button" data-action="play" aria-pressed="false">
+    <button class="dock__btn" type="button" data-action="play" aria-pressed="false" aria-expanded="false" aria-controls="playbar">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M5 9.5c4 1.4 10 1.4 14 0M5 14.5c4-1.4 10-1.4 14 0" class="stroke"/></svg>
       <span>Play</span>
     </button>

@@ -90,12 +90,18 @@ export class Renderer {
     this.inset = bottomPx;
   }
 
+  /** Shrinks the pet (games want room to play); 1 = normal size. Eased like the inset. */
+  setZoom(z) {
+    this.zoom = z;
+  }
+
   /** Eases the stage toward its target layout; k = 1 snaps. */
   layout(k) {
     const floorY = this.H - (this.inset ?? 0) - 14;
     const oy = Math.min(this.baseOy, floorY);
     const top = Math.min(this.H * 0.24, 190); // room for the top bar, status and a bubble
-    const S = this.inset ? Math.max(this.baseS * 0.55, Math.min(this.baseS, (oy - top) / 1.08)) : this.baseS;
+    const fit = this.inset ? Math.max(this.baseS * 0.55, Math.min(this.baseS, (oy - top) / 1.08)) : this.baseS;
+    const S = fit * (this.zoom ?? 1);
     this.S += (S - this.S) * k;
     this.oy += (oy - this.oy) * k;
   }
@@ -187,7 +193,7 @@ export class Renderer {
       this.drawBack(species, pose, speciesState, cues, stage, hoverY);
     } else {
       this.clearLayers();
-      if (species.grounded) drawPedestal(ctx, species.palette.pedestal);
+      if (species.grounded) drawPedestal(ctx, species.palette.pedestal, pose.x);
       drawShadow(ctx, species, pose);
     }
 
@@ -214,8 +220,9 @@ function hover(species, pose) {
   return Math.sin(pose.t * (1.1 + pose.energy * 0.8)) * (species.bob ?? 0.03) * pose.calm + pose.hop * 0.6;
 }
 
-function drawPedestal(ctx, color) {
+function drawPedestal(ctx, color, x = 0) {
   ctx.save();
+  ctx.translate(x, 0); // follows the pet when it slides (games)
   ctx.fillStyle = color;
   ctx.globalAlpha = 0.9;
   ctx.beginPath();

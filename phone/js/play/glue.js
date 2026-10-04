@@ -12,8 +12,9 @@ import { haptic } from '../native.js';
 import { SnackTime } from './snacks.js';
 import { MotionSense } from './motion.js';
 import { composePhoto, toBlob } from './photo.js';
-import { SnackBar } from '../ui/snackBar.js';
+import { ChoiceBar } from '../ui/choiceBar.js';
 import { styleSheet, photoSheet } from '../ui/styleSheet.js';
+import { GAMES } from '../games/host.js';
 
 const PHOTO_POSE_MS = 650;
 
@@ -24,12 +25,20 @@ export class PlayGlue {
     this.snacks = new SnackTime(app);
     this.motion = new MotionSense({ onShake: () => this.onShake() });
     this.photoAt = null;
-    this.snackBar = new SnackBar({
+    this.snackBar = new ChoiceBar({
+      el: '#snackbar',
+      action: 'snack',
       onPick: (id, from) => { this.snacks.feed(id, from); this.snackBar.hide(); },
       onToggle: (open) => {
         app.ui.setPressed('snack', open);
         document.querySelector('[data-action="snack"]')?.setAttribute('aria-expanded', String(open));
       },
+    });
+    this.playBar = new ChoiceBar({
+      el: '#playbar',
+      action: 'play',
+      onPick: (id) => { this.playBar.hide(); if (id === 'ball') app.toggleBall(); else app.games.start(id); },
+      onToggle: (open) => document.querySelector('[data-action="play"]')?.setAttribute('aria-expanded', String(open)),
     });
     $('#styleBtn')?.addEventListener('click', () => app.openSheet('style'));
     this.backdropImg = null;
@@ -124,9 +133,14 @@ export class PlayGlue {
   }
 
   action(name) {
+    if (name === 'play') {
+      if (this.app.ball.active) this.app.toggleBall(); // tap again to put the ball away
+      else this.playBar.toggle([{ id: 'ball', emoji: '⚽', name: 'Ball', label: 'Ball' }, ...GAMES.map((g) => ({ ...g, label: g.name.split(' ')[1] ?? g.name }))]);
+      return true;
+    }
     if (name !== 'snack') return false;
     this.app.sfx.unlock();
-    this.snackBar.toggle(this.snacks.menu);
+    this.snackBar.toggle(this.snacks.menu.map((s) => ({ ...s, mark: s.favourite ? '♥' : '', markLabel: 'favourite' })));
     return true;
   }
 

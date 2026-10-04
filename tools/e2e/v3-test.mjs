@@ -60,7 +60,7 @@ await sleep(400);
 await page.click('[data-action="snack"]');
 check('snack bar opens with 5 treats', (await page.locator('#snackbar .snack').count()) === 5);
 const bondBefore = await app(() => window.peek.bond.hearts);
-await page.click('[data-snack="onigiri"]');
+await page.click('[data-choice="onigiri"]');
 check('snack bar closes after picking', await page.locator('#snackbar').isHidden());
 check('the pet watches the treat fly in', await app(() => window.peek.play.snacks.active));
 await waitFor(() => window.peek.rig.acts.chew && window.peek.rig.t < window.peek.rig.acts.chew.until);
@@ -90,6 +90,7 @@ await waitFor(() => window.peek.emotion === 'dizzy');
 const shook = await app(() => ({ shake: Boolean(window.peek.rig.acts.shake), emotion: window.peek.emotion }));
 check('shaking makes the pet dizzy', shook.shake && shook.emotion === 'dizzy', JSON.stringify(shook));
 await page.click('[data-action="play"]');
+if (await page.$('#playbar:not([hidden])')) await page.click('[data-choice="ball"]');
 // beta 30°, gamma 60°: downhill is cos(30°)·sin(60°) = 0.75 to the right.
 await app(() => window.dispatchEvent(Object.assign(new Event('deviceorientation'), { beta: 30, gamma: 60 })));
 await waitFor(() => window.peek.play.motion.tilt.x > 0.6);

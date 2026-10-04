@@ -28,6 +28,7 @@ import { powersSheet } from './ui/powersSheet.js';
 import { nativePairSheet } from './ui/nativePair.js';
 import { isNative, discoverPcs, haptic } from './native.js';
 import { PlayGlue } from './play/glue.js';
+import { GameHost } from './games/host.js';
 
 export const VERSION = '0.3.0';
 const BUBBLE_COOLDOWN_MS = 4500;
@@ -82,8 +83,9 @@ export class App {
       onMessage: (m) => this.onLinkMessage(m),
     });
     this.glue = new PowerGlue(this);
+    this.games = new GameHost(this);
     this.play = new PlayGlue(this);
-    this.toys = { draw: (ctx) => this.play.drawToys(ctx) };
+    this.toys = { draw: (ctx) => { this.play.drawToys(ctx); this.games.draw(ctx); } };
     this.setSpecies(this.settings.pet, { quiet: true });
     this.applySettings();
     this.wireInput();
@@ -133,16 +135,18 @@ export class App {
     this.emotion = currentEmotion(this.mood, ctx, wall);
 
     const { target, source } = this.pickGaze(now);
-    const pose = this.play.applyToPose(this.rig.update(dt, { emotion: this.emotion, gazeTarget: target, source, reducedMotion: this.settings.reducedMotion }));
+    const pose = this.games.applyToPose(this.play.applyToPose(this.rig.update(dt, { emotion: this.emotion, gazeTarget: target, source, reducedMotion: this.settings.reducedMotion })));
     this.pose = pose;
     this.speciesState = this.species.step(this.speciesState, pose, dt);
 
     this.play.frame(dt);
+    this.games.frame(dt);
     this.updateBall(dt, pose);
     this.ambientParticles(dt, pose);
     this.particles.update(dt);
     const props = this.glue.frame(dt, wall);
-    this.renderer.setInset(this.glue.card.visible ? this.ui.nudgeInset() : 0);
+    this.renderer.setInset(Math.max(this.glue.card.visible ? this.ui.nudgeInset() : 0, this.games.inset));
+    this.renderer.setZoom(this.games.zoom);
     this.renderer.tick(dt);
     this.renderer.draw(this.species, pose, this.speciesState, this.particles, this.toys, { ...props, outfit: this.play.outfit });
     this.play.afterDraw(now);
@@ -158,7 +162,7 @@ export class App {
   }
 
   restful() {
-    return this.emotion === 'asleep' && !this.particles.active && !this.ball.active && !this.ui.bubbleVisible && !this.glue.card.visible && !this.play.busy;
+    return this.emotion === 'asleep' && !this.particles.active && !this.ball.active && !this.ui.bubbleVisible && !this.glue.card.visible && !this.play.busy && !this.games.active;
   }
 
   trackPerformance(dt) {
@@ -193,7 +197,7 @@ export class App {
     if (this.emotion === 'asleep') return { target: null, source: 'idle' };
     const face = this.faceScreen();
     if (this.touchLook) return { target: pointToGaze(this.touchLook.x, this.touchLook.y, face.x, face.y, this.renderer.S), source: 'touch' };
-    const snack = this.play.lookPoint();
+    const snack = this.games.lookPoint() ?? this.play.lookPoint();
     if (snack) {
       const p = this.renderer.toScreen(snack.x, snack.y);
       return { target: pointToGaze(p.x, p.y, face.x, face.y, this.renderer.S), source: 'toy' };
@@ -377,13 +381,6 @@ export class App {
     if (this.play.action(name)) return;
     const top = this.headStage();
     switch (name) {
-      case 'play':
-        if (this.ball.active) { this.ball.hide(); this.ui.setPressed('play', false); break; }
-        this.ball.spawn(this.renderer.bounds);
-        this.ui.setPressed('play', true);
-        this.react({ type: 'play' });
-        this.send('play');
-        break;
       case 'cheer':
         this.ui.flash(btn);
         this.react({ type: 'cheer' });
@@ -414,6 +411,15 @@ export class App {
       }
       default: break;
     }
+  }
+
+  /** The bouncy ball toy (Play menu → Ball, or tap Play again to put it away). */
+  toggleBall() {
+    if (this.ball.active) { this.ball.hide(); this.ui.setPressed('play', false); return; }
+    this.ball.spawn(this.renderer.bounds);
+    this.ui.setPressed('play', true);
+    this.react({ type: 'play' });
+    this.send('play');
   }
 
   send(eventName) {

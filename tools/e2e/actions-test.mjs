@@ -20,6 +20,7 @@ await page.goto(base);
 await page.waitForFunction(() => window.peek?.pose);
 
 await page.click('[data-action="play"]');
+if (await page.$('#playbar:not([hidden])')) await page.click('[data-choice="ball"]');
 await sleep(300);
 const ballFace = await page.evaluate(() => { const b = window.peek.ball; const s = window.peek.renderer.toScreen(b.x, b.y); return { active: b.active, ...s }; });
 check('Play spawns a ball', ballFace.active);

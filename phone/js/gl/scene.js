@@ -23,7 +23,7 @@ export function applyPetTransform(t, species, pose, hoverY) {
 export function buildScene(b, species, pose, state, hoverY) {
   const pal = species.palette;
   if (species.grounded) {
-    b.ellipse({ x: 0, y: 0.035, rx: 0.8, ry: 0.13 }, { base: 'pedestal', color: pal.pedestal, color2: shade(pal.pedestal, -0.04), sssColor: '#ffffff' });
+    b.ellipse({ x: pose.x, y: 0.035, rx: 0.8, ry: 0.13 }, { base: 'pedestal', color: pal.pedestal, color2: shade(pal.pedestal, -0.04), sssColor: '#ffffff' });
   }
   const lift = species.grounded ? pose.hop : species.floatY + Math.max(0, pose.hop);
   const k = Math.max(0.35, 1 - lift * 0.9);
