@@ -17,8 +17,16 @@ export const EMOTES = Object.freeze([
   { id: 'love', emoji: '💖', label: 'Love' },
 ].map((e) => Object.freeze(e)));
 
+/** Games with leaderboards, and the highest score that's plausible in one round (anti-cheat). */
+export const GAME_IDS = Object.freeze(['catch', 'cups', 'pop']);
+export const MAX_SCORE = Object.freeze({ catch: 400, cups: 60, pop: 500 });
+
+export function validScore(game, score) {
+  return GAME_IDS.includes(game) && Number.isInteger(score) && score >= 0 && score <= MAX_SCORE[game];
+}
+
 // Control, zero-width, and bidi-override characters (they can hide or flip text).
-const INVISIBLE = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F​-‏‪-‮⁠-⁩﻿]/g;
+const INVISIBLE = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
 
 export function cleanText(s, max = MAX_TEXT) {
   if (typeof s !== 'string') return '';
@@ -61,12 +69,21 @@ export function makeCode(randomBytes) {
   return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
 }
 
-/** { text, emote } cleaned, or null if there's nothing valid to send. */
+/**
+ * { text, emote, challenge } cleaned, or null if there's nothing valid to send.
+ * A challenge is "beat my score": { game, score }.
+ */
 export function validMessage(m) {
   if (!m || typeof m !== 'object') return null;
   const text = maskProfanity(cleanText(m.text ?? ''));
   const emote = m.emote == null ? null : EMOTES.some((e) => e.id === m.emote) ? m.emote : undefined;
   if (emote === undefined) return null;
-  if (!text && !emote) return null;
-  return { text, emote };
+  let challenge = null;
+  if (m.challenge != null) {
+    const c = m.challenge;
+    if (!c || !validScore(c.game, c.score)) return null;
+    challenge = { game: c.game, score: c.score };
+  }
+  if (!text && !emote && !challenge) return null;
+  return { text, emote, challenge };
 }

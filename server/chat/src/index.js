@@ -71,6 +71,8 @@ async function route(request, env, url) {
     'POST /v1/messages': '/send',
     'POST /v1/read': '/read',
     'GET /v1/live': '/live',
+    'POST /v1/scores': '/scores',
+    'GET /v1/leaderboard': '/leaderboard',
   };
   const target = ROUTES[`${request.method} ${pathname}`];
   if (!target) return fail(404, 'not_found');

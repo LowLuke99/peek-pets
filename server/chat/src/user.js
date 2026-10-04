@@ -4,12 +4,13 @@
 // Worker never forwards outside requests to them.
 
 import { DurableObject } from 'cloudflare:workers';
-import { validMessage, normalizeCode } from '../../../phone/js/core/chatRules.js';
+import { validMessage, normalizeCode, validScore, GAME_IDS } from '../../../phone/js/core/chatRules.js';
 import { randomId, sameHash } from './crypto.js';
 
 const THREAD_MAX = 200;
 const KEEP_MS = 30 * 86_400_000;
-const LIMITS = { send: [30, 60_000], request: [20, 86_400_000], report: [20, 86_400_000] };
+const LIMITS = { send: [30, 60_000], request: [20, 86_400_000], report: [20, 86_400_000], score: [60, 3_600_000] };
+const BOARD_MAX = 50;
 const ok = (data = {}) => Response.json({ ok: true, ...data });
 const no = (status, error) => Response.json({ error }, { status });
 
@@ -38,6 +39,8 @@ export class User extends DurableObject {
       case '/send': return this.send(me, body);
       case '/read': return this.read(body.friend);
       case '/delete': return this.deleteAccount(me);
+      case '/scores': return this.score(me, body);
+      case '/leaderboard': return this.leaderboard(me, url.searchParams.get('game'), url.searchParams.get('scope'));
       case '/live': return this.live();
       default: return no(404, 'not_found');
     }
@@ -134,13 +137,13 @@ export class User extends DurableObject {
   }
 
   // ---------------------------------------------------------------- messages
-  async send(me, { to, text, emote }) {
+  async send(me, { to, text, emote, challenge }) {
     if (!this.allow('send')) return no(429, 'slow_down');
     const friends = await this.get('friends');
     if (!friends[to]) return no(403, 'not_friends');
-    const clean = validMessage({ text, emote });
+    const clean = validMessage({ text, emote, challenge });
     if (!clean) return no(400, 'empty_or_invalid');
-    const msg = { id: randomId().slice(0, 16), from: me.id, to, text: clean.text, emote: clean.emote, at: Date.now() };
+    const msg = { id: randomId().slice(0, 16), from: me.id, to, text: clean.text, emote: clean.emote, challenge: clean.challenge, at: Date.now() };
     const res = await this.callPeer(to, '/x/deliver', { msg, name: me.name, pet: me.pet });
     if (!res.ok) return no(403, 'not_delivered');
     await this.append(to, msg);
@@ -151,6 +154,39 @@ export class User extends DurableObject {
   async read(friend) {
     await this.update('unread', (u) => without(u, friend));
     return ok();
+  }
+
+  // ---------------------------------------------------------------- scores + leaderboards
+  async score(me, { game, score }) {
+    if (!validScore(game, score)) return no(400, 'bad_score');
+    if (!this.allow('score')) return no(429, 'slow_down');
+    const best = await this.get('best');
+    if ((best[game] ?? -1) >= score) return ok({ best: best[game], improved: false });
+    await this.ctx.storage.put('best', { ...best, [game]: score });
+    const dir = this.env.DIRECTORY.get(this.env.DIRECTORY.idFromName('main'));
+    await dir.fetch(new Request('https://dir/score', { method: 'POST', body: JSON.stringify({ id: me.id, name: me.name, pet: me.pet, game, score }) }));
+    return ok({ best: score, improved: true });
+  }
+
+  /** scope=friends: you + your friends' bests; scope=world: the top 50. */
+  async leaderboard(me, game, scope) {
+    if (!GAME_IDS.includes(game)) return no(400, 'bad_game');
+    if (scope === 'world') {
+      const dir = this.env.DIRECTORY.get(this.env.DIRECTORY.idFromName('main'));
+      const res = await dir.fetch(new Request(`https://dir/top?game=${game}`));
+      const { board } = await res.json();
+      return ok({ board: board.map((e, i) => ({ rank: i + 1, name: e.name, pet: e.pet, score: e.score, me: e.id === me.id })) });
+    }
+    const friends = await this.get('friends');
+    const mine = (await this.get('best'))[game];
+    const rows = await Promise.all(Object.entries(friends).map(async ([id, f]) => {
+      const res = await this.callPeer(id, '/x/best', { from: me.id, game });
+      const { score } = res.ok ? await res.json() : { score: null };
+      return score == null ? null : { name: f.name, pet: f.pet, score, me: false };
+    }));
+    const board = [...rows.filter(Boolean), ...(mine == null ? [] : [{ name: me.name, pet: me.pet, score: mine, me: true }])]
+      .sort((a, b) => b.score - a.score).slice(0, BOARD_MAX).map((e, i) => ({ rank: i + 1, ...e }));
+    return ok({ board });
   }
 
   // ---------------------------------------------------------------- object-to-object
@@ -178,6 +214,11 @@ export class User extends DurableObject {
         if (outgoing[from] && !blocked[from]) await this.befriend(from, body.name, body.pet);
         return ok();
       }
+      case '/x/best': {
+        const friends = await this.get('friends');
+        if (!friends[from] || !GAME_IDS.includes(body.game)) return no(403, 'not_friends');
+        return ok({ score: (await this.get('best'))[body.game] ?? null });
+      }
       case '/x/removed':
         await this.forget(from, true);
         return ok();
@@ -201,7 +242,7 @@ export class User extends DurableObject {
     const outgoing = await this.get('outgoing');
     await Promise.all([...new Set([...Object.keys(friends), ...Object.keys(outgoing)])].map((id) => this.callPeer(id, '/x/removed', { from: me.id })));
     const dir = this.env.DIRECTORY.get(this.env.DIRECTORY.idFromName('main'));
-    await dir.fetch(new Request('https://dir/forget', { method: 'POST', body: JSON.stringify({ code: me.code }) }));
+    await dir.fetch(new Request('https://dir/forget', { method: 'POST', body: JSON.stringify({ code: me.code, id: me.id }) }));
     for (const ws of this.ctx.getWebSockets()) ws.close(4001, 'deleted');
     await this.ctx.storage.deleteAll();
     return ok({ deleted: true });

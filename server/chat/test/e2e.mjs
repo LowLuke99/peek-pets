@@ -21,7 +21,11 @@ function live(token) {
   const ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/v1/live?token=${encodeURIComponent(token)}`);
   const events = [];
   ws.addEventListener('message', (e) => { try { events.push(JSON.parse(e.data)); } catch { /* pong */ } });
-  return { ws, events, open: new Promise((r) => ws.addEventListener('open', r)) };
+  const open = new Promise((resolve, reject) => {
+    ws.addEventListener('open', resolve);
+    ws.addEventListener('error', () => reject(new Error('live socket failed')));
+  });
+  return { ws, events, open };
 }
 
 // ---- sign-up
@@ -95,6 +99,27 @@ check('Ada deletes her account', del.data.deleted === true);
 check('her token stops working and she vanishes from Cy\'s friends', (await call(ada.token, 'GET', '/v1/me')).status === 401
   && (await call(cy.token, 'GET', '/v1/me')).data.friends.length === 0);
 check('her friend code is released', (await call(cy.token, 'POST', '/v1/friends/request', { code: ada.code })).status === 404);
+
+// ---- scores, leaderboards, challenges
+const dee = await register('Dee', 'lumi');
+const eve = await register('Eve', 'bun');
+await call(dee.token, 'POST', '/v1/friends/request', { code: eve.code });
+await call(eve.token, 'POST', '/v1/friends/request', { code: dee.code });
+check('impossible scores are refused', (await call(dee.token, 'POST', '/v1/scores', { game: 'catch', score: 99999 })).status === 400
+  && (await call(dee.token, 'POST', '/v1/scores', { game: 'chess', score: 5 })).status === 400);
+await call(dee.token, 'POST', '/v1/scores', { game: 'catch', score: 31 });
+const lower = await call(dee.token, 'POST', '/v1/scores', { game: 'catch', score: 12 });
+check('only your best counts', lower.data.best === 31 && lower.data.improved === false);
+await call(eve.token, 'POST', '/v1/scores', { game: 'catch', score: 40 });
+const fb = (await call(dee.token, 'GET', '/v1/leaderboard?game=catch&scope=friends')).data.board;
+check('friends leaderboard: Eve 40 above Dee 31 (me flagged)', fb.length === 2 && fb[0].name === 'Eve' && fb[1].me === true && fb[1].score === 31, JSON.stringify(fb));
+const wb = (await call(cy.token, 'GET', '/v1/leaderboard?game=catch&scope=world')).data.board;
+check('world leaderboard lists everyone\'s best', wb[0].name === 'Eve' && wb.some((e) => e.name === 'Dee') && wb.every((e) => !('id' in e)), JSON.stringify(wb));
+const ch = await call(dee.token, 'POST', '/v1/messages', { to: eve.id, text: 'beat this!', challenge: { game: 'catch', score: 31 } });
+check('a challenge message carries the game and score', ch.data.msg?.challenge?.game === 'catch' && ch.data.msg.challenge.score === 31);
+check('challenges with silly scores are refused', (await call(dee.token, 'POST', '/v1/messages', { to: eve.id, challenge: { game: 'catch', score: 5000 } })).status === 400);
+await call(eve.token, 'DELETE', '/v1/me');
+check('a deleted account leaves the world leaderboard', !(await call(cy.token, 'GET', '/v1/leaderboard?game=catch&scope=world')).data.board.some((e) => e.name === 'Eve'));
 
 adaLive.ws.close();
 boLive.ws.close();
