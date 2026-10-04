@@ -54,3 +54,23 @@ test('challenges and scores: known games, whole numbers, plausible maximums', ()
   assert.equal(validMessage({ text: 'hi', challenge: { game: 'pop', score: 2.5 } }), null);
   assert.ok(validScore('cups', MAX_SCORE.cups) && !validScore('cups', MAX_SCORE.cups + 1) && !validScore('pop', -1));
 });
+
+test('filter bypasses from the security review are caught', () => {
+  const masked = (s) => maskProfanity(cleanText(s)).includes('★');
+  for (const s of ['fu­ck', 'f.u.c.k', 'f-u-c-k you', 'fuckyou', 'fuuuuuck', 'fuсk', 'sh!tt', 'what an a$$', 'nazi', 'p0rn', 'motherf***er']) {
+    assert.ok(masked(s), s);
+  }
+  for (const s of ['class assignment', 'Scunthorpe', 'grapes', 'Dickens', 'assassin', 'cocktail party', 'hello there']) {
+    assert.equal(maskProfanity(cleanText(s)), s, s);
+  }
+});
+
+test('links, emails and phone numbers are hidden (kids safety); names can\'t carry them', () => {
+  assert.equal(validMessage({ text: 'add me bob@mail.com ok' }).text.includes('@mail.com'), false);
+  assert.equal(validMessage({ text: 'go to www.badsite.com now' }).text.includes('badsite'), false);
+  assert.equal(validMessage({ text: 'https://x.co/abc' }).text.includes('x.co'), false);
+  assert.equal(validMessage({ text: 'call 416 555 0199' }).text.includes('555'), false);
+  assert.equal(validMessage({ text: 'I scored 31 at 3:15' }).text, 'I scored 31 at 3:15');
+  assert.equal(cleanName('bob@mail.com'), null);
+  assert.equal(cleanName('call 4165550199'), null);
+});

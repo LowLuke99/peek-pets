@@ -17,8 +17,9 @@ async function call(token, method, path, body) {
 }
 const register = (name, pet = 'mochi') => call(null, 'POST', '/v1/register', { name, pet, agree: true }).then((r) => r.data);
 
-function live(token) {
-  const ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/v1/live?token=${encodeURIComponent(token)}`);
+async function live(token) {
+  const { data } = await call(token, 'POST', '/v1/live-ticket');
+  const ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/v1/live?ticket=${encodeURIComponent(data.ticket)}`);
   const events = [];
   ws.addEventListener('message', (e) => { try { events.push(JSON.parse(e.data)); } catch { /* pong */ } });
   const open = new Promise((resolve, reject) => {
@@ -41,8 +42,8 @@ const cors = await call(ada.token, 'GET', '/v1/me');
 check('CORS is open for the app (bearer tokens, no cookies)', cors.headers.get('access-control-allow-origin') === '*');
 
 // ---- friends
-const adaLive = live(ada.token);
-const boLive = live(bo.token);
+const adaLive = await live(ada.token);
+const boLive = await live(bo.token);
 await Promise.all([adaLive.open, boLive.open]);
 check('cannot friend yourself', (await call(ada.token, 'POST', '/v1/friends/request', { code: ada.code })).data.error === 'thats_you');
 check('unknown codes are refused', (await call(ada.token, 'POST', '/v1/friends/request', { code: 'ZZZZZZ' })).status === 404);
@@ -79,8 +80,13 @@ for (let i = 0; i < 40 && !limited; i++) limited = (await call(ada.token, 'POST'
 check('message flood is rate-limited', limited);
 
 // ---- report + block
-check('Bo reports Ada', (await call(bo.token, 'POST', '/v1/report', { id: ada.id, reason: 'test' })).status === 200);
-check('Bo blocks Ada', (await call(bo.token, 'POST', '/v1/block', { id: ada.id })).status === 200);
+check('Bo blocks Ada and reports her in one go', (await call(bo.token, 'POST', '/v1/block', { id: ada.id, report: true, reason: 'test' })).status === 200);
+const reports = (await fetch(`${BASE}/v1/admin/reports`, { headers: { Authorization: 'Bearer dev-admin-token' } }).then((r) => r.json())).reports;
+const rep1 = reports.filter((r) => r.about === ada.id).at(-1);
+check('…and the report kept the messages as evidence', rep1 && rep1.recent.length > 0 && rep1.name === 'Ada', JSON.stringify(rep1?.recent?.length));
+check('admin routes refuse without the token', (await fetch(`${BASE}/v1/admin/reports`)).status === 403
+  && (await fetch(`${BASE}/v1/admin/reports`, { headers: { Authorization: 'Bearer nope' } })).status === 403);
+check('a moderator can resolve the report', (await fetch(`${BASE}/v1/admin/resolve`, { method: 'POST', headers: { Authorization: 'Bearer dev-admin-token' }, body: JSON.stringify({ key: rep1.key }) })).status === 200);
 await sleep(150);
 const after = (await call(ada.token, 'GET', '/v1/me')).data;
 check('blocking unfriends on both sides', after.friends.length === 0 && (await call(bo.token, 'GET', '/v1/me')).data.friends.length === 0);
@@ -113,13 +119,41 @@ check('only your best counts', lower.data.best === 31 && lower.data.improved ===
 await call(eve.token, 'POST', '/v1/scores', { game: 'catch', score: 40 });
 const fb = (await call(dee.token, 'GET', '/v1/leaderboard?game=catch&scope=friends')).data.board;
 check('friends leaderboard: Eve 40 above Dee 31 (me flagged)', fb.length === 2 && fb[0].name === 'Eve' && fb[1].me === true && fb[1].score === 31, JSON.stringify(fb));
+check('nobody is on the world leaderboard unless they opt in', !(await call(cy.token, 'GET', '/v1/leaderboard?game=catch&scope=world')).data.board.some((e) => e.name === 'Eve' || e.name === 'Dee'));
+await call(dee.token, 'POST', '/v1/settings', { world: true });
+await call(eve.token, 'POST', '/v1/settings', { world: true });
 const wb = (await call(cy.token, 'GET', '/v1/leaderboard?game=catch&scope=world')).data.board;
-check('world leaderboard lists everyone\'s best', wb[0].name === 'Eve' && wb.some((e) => e.name === 'Dee') && wb.every((e) => !('id' in e)), JSON.stringify(wb));
+check('opted in: world leaderboard lists their bests (no ids)', wb.findIndex((e) => e.name === 'Eve') < wb.findIndex((e) => e.name === 'Dee') && wb.some((e) => e.name === 'Dee') && wb.every((e) => !('id' in e)), JSON.stringify(wb));
 const ch = await call(dee.token, 'POST', '/v1/messages', { to: eve.id, text: 'beat this!', challenge: { game: 'catch', score: 31 } });
 check('a challenge message carries the game and score', ch.data.msg?.challenge?.game === 'catch' && ch.data.msg.challenge.score === 31);
 check('challenges with silly scores are refused', (await call(dee.token, 'POST', '/v1/messages', { to: eve.id, challenge: { game: 'catch', score: 5000 } })).status === 400);
 await call(eve.token, 'DELETE', '/v1/me');
 check('a deleted account leaves the world leaderboard', !(await call(cy.token, 'GET', '/v1/leaderboard?game=catch&scope=world')).data.board.some((e) => e.name === 'Eve'));
+
+// ---- review fixes: tokens only in the header, prototype ids, code rotation, bans
+const raw = await fetch(`${BASE}/v1/me?token=${encodeURIComponent(dee.token)}`);
+check('the account token is not accepted in a URL', raw.status === 401);
+check('odd ids like __proto__ are refused', (await call(dee.token, 'POST', '/v1/report', { id: '__proto__' })).status === 404
+  && (await call(dee.token, 'POST', '/v1/friends/accept', { id: 'constructor' })).status === 404);
+const oldCode = dee.code;
+const rot = await call(dee.token, 'POST', '/v1/code/rotate');
+check('a new friend code replaces the old one', /^[A-Z2-9]{6}$/.test(rot.data.code) && rot.data.code !== oldCode
+  && (await call(cy.token, 'POST', '/v1/friends/request', { code: oldCode })).status === 404);
+const deeLive = await live(dee.token);
+await deeLive.open;
+const junk = await new Promise((resolve) => {
+  const ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/v1/live?ticket=${dee.id}.${'x'.repeat(43)}`);
+  ws.addEventListener('open', () => { ws.close(); resolve('opened'); });
+  ws.addEventListener('error', () => resolve('refused'));
+});
+check('junk live tickets are refused', junk === 'refused');
+const ban = await fetch(`${BASE}/v1/admin/ban`, { method: 'POST', headers: { Authorization: 'Bearer dev-admin-token' }, body: JSON.stringify({ id: dee.id }) });
+await new Promise((r) => setTimeout(r, 300));
+check('a moderator ban wipes the account: token dead, code gone, off the boards', ban.status === 200
+  && (await call(dee.token, 'GET', '/v1/me')).status === 401
+  && (await call(cy.token, 'POST', '/v1/friends/request', { code: rot.data.code })).status === 404
+  && !(await call(cy.token, 'GET', '/v1/leaderboard?game=catch&scope=world')).data.board.some((e) => e.name === 'Dee'));
+check('…and its live socket is closed', deeLive.ws.readyState >= 2);
 
 adaLive.ws.close();
 boLive.ws.close();

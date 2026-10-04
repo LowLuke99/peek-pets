@@ -142,22 +142,31 @@ export class FriendsGlue {
   build() {
     const app = this.app;
     const c = this.client;
-    if (!c.configured) return notConfiguredView({ serverUrl: store.get('chatUrl'), onServer: (url) => this.setServer(url) });
+    const developer = Boolean(app.settings.debug); // Settings → Show link stats
+    if (!c.configured) return notConfiguredView({ serverUrl: store.get('chatUrl'), developer, onServer: (url) => this.setServer(url) });
     if (!c.signedUp) {
       return signUpView({
         petName: app.species.name, termsUrl: `${c.url}/terms`, error: this.view.error,
         onJoin: (name) => this.join(name),
       });
     }
-    if (!this.data.me) return listView({ data: { ...EMPTY, me: { code: c.account.code } }, onAdd: () => {}, onAccept: () => {}, onDecline: () => {}, onOpen: () => {}, onBoards: () => {}, onSettings: () => {}, onShare: () => this.share(), info: 'Loading…' });
+    if (!this.data.me) {
+      const noop = () => {};
+      return listView({ data: { ...EMPTY, me: { code: c.account.code } }, onAdd: noop, onAccept: noop, onDecline: noop, onBlockRequest: noop, onOpen: noop, onBoards: noop, onSettings: noop, onShare: () => this.share(), info: 'Loading…' });
+    }
     switch (this.view.name) {
       case 'chat': return this.chat();
       case 'boards': return this.boards();
       case 'settings': return settingsView({
-        me: this.data.me, serverUrl: store.get('chatUrl') ?? '', privacyUrl: `${c.url}/privacy`,
+        me: this.data.me, serverUrl: store.get('chatUrl') ?? '', privacyUrl: `${c.url}/privacy`, supportUrl: `${c.url}/support`, developer,
         onBack: () => this.go({ name: 'list' }),
         onDelete: () => this.deleteAccount(),
         onServer: (url) => this.setServer(url),
+        onWorld: (on) => this.act(() => c.setWorld(on), () => ({ name: 'settings' }), on ? "You're on the Everyone leaderboard." : 'Hidden from the Everyone leaderboard.'),
+        onNewCode: () => {
+          if (!confirm('Get a new friend code? Your old code stops working (friends you have stay).')) return;
+          this.act(() => c.rotateCode(), () => ({ name: 'settings' }), 'New friend code ready.');
+        },
       });
       default: return listView({
         data: this.data, error: this.view.error, info: this.view.info,
@@ -165,6 +174,11 @@ export class FriendsGlue {
         onAdd: (code) => this.act(() => c.request(code), (r) => ({ name: 'list', info: r.status === 'friends' ? 'You\'re friends now!' : r.status === 'already_friends' ? 'Already friends.' : `Request sent to ${r.name ?? 'them'}.` })),
         onAccept: (id) => this.act(() => c.accept(id), () => ({ name: 'list', info: 'New friend!' })),
         onDecline: (id) => this.act(() => c.decline(id), () => ({ name: 'list' })),
+        onBlockRequest: (r) => {
+          if (!confirm(`Block ${r.name}? They can't send you requests or messages any more.`)) return;
+          const report = confirm(`Also report ${r.name} to the Peek Pets team?`);
+          this.act(() => c.block(r.id, report), () => ({ name: 'list', info: `${r.name} is blocked.` }), report ? "Thanks, we'll take a look." : undefined);
+        },
         onOpen: (f) => this.openChat(f),
         onBoards: () => this.openBoards('catch', 'friends'),
         onSettings: () => this.go({ name: 'settings' }),
@@ -195,7 +209,9 @@ export class FriendsGlue {
       },
       onBlock: () => {
         if (!confirm(`Block ${f.name}? They'll be removed from your friends and can't message you.`)) return;
-        this.act(() => c.block(f.id), () => ({ name: 'list', info: `${f.name} is blocked.` }));
+        // Reporting here keeps your recent messages as evidence before the chat is removed.
+        const report = confirm(`Also report ${f.name} to the Peek Pets team?`);
+        this.act(() => c.block(f.id, report), () => ({ name: 'list', info: `${f.name} is blocked.` }), report ? "Thanks, we'll take a look." : undefined);
       },
     });
   }
@@ -216,7 +232,8 @@ export class FriendsGlue {
   boards() {
     const v = this.view;
     return boardsView({
-      game: v.game, scope: v.scope, board: v.board ?? [], loading: v.loading, error: v.error,
+      game: v.game, scope: v.scope, board: v.board ?? [], loading: v.loading, error: v.error, world: Boolean(this.data.me?.world),
+      onWorld: (on) => this.act(() => this.client.setWorld(on), () => ({ name: 'boards', game: v.game, scope: v.scope, loading: true })).then(() => this.openBoards(v.game, v.scope)),
       onGame: (g) => this.openBoards(g, v.scope),
       onScope: (s) => this.openBoards(v.game, s),
       onBack: () => this.go({ name: 'list' }),

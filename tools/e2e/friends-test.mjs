@@ -98,7 +98,9 @@ check('friends leaderboard: Bo 20 above Ada 12', await ada.waitFor(() => {
 }));
 await ada.page.screenshot({ path: join(OUT, 'ada-boards.png') });
 await ada.page.click('.seg button[data-v="world"]');
-check('world leaderboard loads', await ada.waitFor(() => document.querySelectorAll('.board__row').length >= 2));
+check('Everyone leaderboard is opt-in: Ada is hidden at first', await ada.waitFor(() => document.querySelector('[data-fr="world-on"]') !== null && ![...document.querySelectorAll('.board__row')].some((r) => /Ada/.test(r.textContent))));
+await ada.page.click('[data-fr="world-on"]');
+check('after opting in, Ada is on the Everyone leaderboard', await ada.waitFor(() => [...document.querySelectorAll('.board__row')].some((r) => /Ada \(you\)/.test(r.textContent))));
 
 // ---- block + delete
 await bo.page.click('[data-action="friends"]');

@@ -16,6 +16,15 @@ class_name = "Directory"
 tag = "v1"
 new_sqlite_classes = ["User", "Directory"]
 
+# Per-network and per-account request limit in front of everything (stops floods
+# and keeps the bill at zero).
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
+
 [vars]
 # Shown on the privacy/support pages (Apple requires a contact). Fill in before going public.
 SUPPORT_EMAIL = ""
+# Optional: a Discord/Slack webhook URL that gets a message for every report.
+# REPORT_WEBHOOK = "https://discord.com/api/webhooks/..."

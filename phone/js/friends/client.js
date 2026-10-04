@@ -1,6 +1,7 @@
-// Talks to the friends & chat server (server/chat): REST calls with the account token,
-// plus a live WebSocket for new messages and requests (reconnects with backoff while
-// Friends is on). The account lives in storage as { id, token, code, name }.
+// Talks to the friends & chat server (server/chat): REST calls with the account token in
+// the Authorization header, plus a live WebSocket (opened with a single-use ticket) for
+// new messages and requests; it reconnects with backoff while Friends is on.
+// The account lives in storage as { id, token, code, name }.
 
 import { store } from '../store.js';
 import { reconnectDelay } from '../core/backoff.js';
@@ -67,7 +68,14 @@ export class FriendsClient {
   accept(id) { return this.call('POST', '/v1/friends/accept', { id }); }
   decline(id) { return this.call('POST', '/v1/friends/decline', { id }); }
   remove(id) { return this.call('POST', '/v1/friends/remove', { id }); }
-  block(id) { return this.call('POST', '/v1/block', { id }); }
+  block(id, report = false) { return this.call('POST', '/v1/block', { id, report, reason: report ? 'blocked and reported from the app' : undefined }); }
+  setWorld(world) { return this.call('POST', '/v1/settings', { world }); }
+  async rotateCode() {
+    const { code } = await this.call('POST', '/v1/code/rotate');
+    this.account = { ...this.account, code };
+    store.set('chat', this.account);
+    return code;
+  }
   report(id, reason) { return this.call('POST', '/v1/report', { id, reason }); }
   messages(friend) { return this.call('GET', `/v1/messages?friend=${encodeURIComponent(friend)}`); }
   send(to, { text, emote, challenge }) { return this.call('POST', '/v1/messages', { to, text, emote, challenge }); }
@@ -86,10 +94,16 @@ export class FriendsClient {
   }
 
   // ---------------------------------------------------------------- live
-  connect() {
+  async connect() {
     this.wanted = true;
-    if (!this.signedUp || !this.configured || this.ws) return;
-    const url = `${this.url.replace(/^http/, 'ws')}/v1/live?token=${encodeURIComponent(this.account.token)}`;
+    if (!this.signedUp || !this.configured || this.ws || this.connecting) return;
+    // A single-use, 60-second ticket opens the socket, so the account token never sits in a URL.
+    this.connecting = true;
+    let ticket;
+    try { ({ ticket } = await this.call('POST', '/v1/live-ticket')); } catch { this.connecting = false; return this.retry(); }
+    this.connecting = false;
+    if (!this.wanted || this.ws) return;
+    const url = `${this.url.replace(/^http/, 'ws')}/v1/live?ticket=${encodeURIComponent(ticket)}`;
     let ws;
     try { ws = new WebSocket(url); } catch { return this.retry(); }
     this.ws = ws;

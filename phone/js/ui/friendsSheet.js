@@ -3,7 +3,7 @@
 // account settings. Pure view builders: FriendsGlue passes data and callbacks.
 // Everything from other people goes through textContent (h()), never HTML.
 
-import { h, segmented } from './dom.js';
+import { h, segmented, row, toggle } from './dom.js';
 import { EMOTES, MAX_TEXT, MAX_NAME, normalizeCode } from '../core/chatRules.js';
 import { GAMES } from '../games/host.js';
 
@@ -22,13 +22,14 @@ const ERRORS = {
 export const errorText = (e) => ERRORS[e?.code] ?? 'Something went wrong. Try again in a moment.';
 
 /** Friends isn't connected to a server yet (developer setup). */
-export function notConfiguredView({ serverUrl, onServer }) {
+/** Friends isn't connected to a server yet. Developers (Settings → Show link stats) can point it at one. */
+export function notConfiguredView({ serverUrl, onServer, developer }) {
   const input = h('input', { class: 'text-input', type: 'url', placeholder: 'https://peekpets-chat.…workers.dev', value: serverUrl ?? '', 'aria-label': 'Friends server address' });
   return h('div', {},
     h('p', { class: 'lead', text: 'Friends lets you chat, send pet emotes, challenge friends and climb the leaderboards.' }),
-    h('p', { class: 'lead lead--small', text: "The Friends server isn't set up yet (see server/chat/README.md). For testing you can enter a server address:" }),
-    input,
-    h('div', { class: 'btn-row' }, h('button', { class: 'btn', type: 'button', text: 'Use this server', onclick: () => onServer(input.value.trim()) })),
+    h('p', { class: 'lead lead--small', text: developer ? "The Friends server isn't set up yet (server/chat/README.md). Test server address:" : 'Friends is coming soon!' }),
+    developer ? input : null,
+    developer ? h('div', { class: 'btn-row' }, h('button', { class: 'btn', type: 'button', text: 'Use this server', onclick: () => onServer(input.value.trim()) })) : null,
   );
 }
 
@@ -53,7 +54,7 @@ export function signUpView({ petName, termsUrl, onJoin, error }) {
 }
 
 /** Your code, add-a-friend, requests and the friends list. */
-export function listView({ data, onAdd, onAccept, onDecline, onOpen, onBoards, onSettings, onShare, error, info }) {
+export function listView({ data, onAdd, onAccept, onDecline, onBlockRequest, onOpen, onBoards, onSettings, onShare, error, info }) {
   const code = h('input', { class: 'code-input', maxlength: '7', placeholder: 'ABC-234', autocapitalize: 'characters', spellcheck: 'false', 'aria-label': "Friend's code",
     oninput: (e) => { const c = normalizeCode(e.target.value); e.target.value = c.length > 3 ? `${c.slice(0, 3)}-${c.slice(3)}` : c; },
     onkeydown: (e) => { if (e.key === 'Enter') onAdd(code.value); } });
@@ -68,9 +69,12 @@ export function listView({ data, onAdd, onAccept, onDecline, onOpen, onBoards, o
     error ? h('p', { class: 'error', role: 'alert', text: error }) : null,
     info ? h('p', { class: 'lead lead--small', role: 'status', text: info }) : null,
     data.incoming.length ? h('p', { class: 'group__title', text: 'Friend requests' }) : null,
-    ...data.incoming.map((r) => h('div', { class: 'fr__row' }, petIcon(r.pet), h('b', { class: 'fr__name', text: r.name }),
+    // The sender's code is shown so a look-alike nickname can't pretend to be someone you know.
+    ...data.incoming.map((r) => h('div', { class: 'fr__row' }, petIcon(r.pet),
+      h('span', { class: 'fr__who' }, h('b', { class: 'fr__name', text: r.name }), r.code ? h('small', { text: `code ${r.code.slice(0, 3)}-${r.code.slice(3)}` }) : null),
       h('button', { class: 'btn btn--small', type: 'button', text: 'Accept', 'data-fr': 'accept', onclick: () => onAccept(r.id) }),
-      h('button', { class: 'btn btn--small btn--ghost', type: 'button', text: 'No', onclick: () => onDecline(r.id) }))),
+      h('button', { class: 'btn btn--small btn--ghost', type: 'button', text: 'No', onclick: () => onDecline(r.id) }),
+      h('button', { class: 'btn btn--small btn--ghost', type: 'button', text: 'Block', 'data-fr': 'block-request', 'aria-label': `Block ${r.name}`, onclick: () => onBlockRequest(r) }))),
     h('div', { class: 'fr__head' },
       h('p', { class: 'group__title', text: `Friends${data.friends.length ? ` (${data.friends.length})` : ''}` }),
       h('button', { class: 'btn btn--small btn--ghost', type: 'button', text: '🏆 Leaderboards', 'data-fr': 'boards', onclick: onBoards }),
@@ -141,7 +145,7 @@ function bubble(m, mine, onPlay) {
 }
 
 /** Leaderboards: one game at a time, friends or everyone. */
-export function boardsView({ game, scope, board, loading, error, onGame, onScope, onBack }) {
+export function boardsView({ game, scope, board, loading, error, world, onGame, onScope, onBack, onWorld }) {
   return h('div', {},
     h('div', { class: 'chat__top' }, h('button', { class: 'btn btn--small btn--ghost', type: 'button', text: '‹ Friends', onclick: onBack })),
     segmented(GAMES.map((g) => [g.id, `${g.emoji} ${g.short}`]), game, onGame, 'Game'),
@@ -149,6 +153,8 @@ export function boardsView({ game, scope, board, loading, error, onGame, onScope
     segmented([['friends', 'Friends'], ['world', 'Everyone']], scope, onScope, 'Leaderboard'),
     loading ? h('p', { class: 'lead', text: 'Loading…' }) : null,
     error ? h('p', { class: 'error', role: 'alert', text: error }) : null,
+    scope === 'world' && !world ? h('p', { class: 'lead lead--small' }, 'You\'re hidden from Everyone. ',
+      h('button', { class: 'btn btn--small btn--ghost', type: 'button', text: 'Show my nickname here', 'data-fr': 'world-on', onclick: () => onWorld(true) })) : null,
     !loading && !error && board.length === 0 ? h('p', { class: 'lead', text: 'No scores yet. Play a round!' }) : null,
     h('ol', { class: 'board' }, ...board.map((r) => h('li', { class: `board__row${r.me ? ' board__row--me' : ''}` },
       h('span', { class: 'board__rank', text: r.rank <= 3 ? ['🥇', '🥈', '🥉'][r.rank - 1] : `#${r.rank}` }),
@@ -156,15 +162,21 @@ export function boardsView({ game, scope, board, loading, error, onGame, onScope
   );
 }
 
-export function settingsView({ me, serverUrl, privacyUrl, onBack, onDelete, onServer }) {
+export function settingsView({ me, serverUrl, privacyUrl, supportUrl, developer, onBack, onDelete, onServer, onWorld, onNewCode }) {
   const server = h('input', { class: 'text-input', type: 'url', value: serverUrl ?? '', 'aria-label': 'Friends server address' });
   return h('div', {},
     h('div', { class: 'chat__top' }, h('button', { class: 'btn btn--small btn--ghost', type: 'button', text: '‹ Friends', onclick: onBack })),
     h('p', { class: 'lead', text: `Signed in as ${me.name}.` }),
-    h('p', { class: 'lead lead--small' }, 'Messages are kept for 30 days. ', h('a', { href: privacyUrl, target: '_blank', rel: 'noopener', text: 'Privacy policy' })),
+    h('div', { class: 'card' },
+      row('Show me on the Everyone leaderboard', 'Your nickname and best scores, visible to other players', toggle(me.world, (v) => onWorld(v), 'Show me on the Everyone leaderboard')),
+      row('New friend code', 'If a stranger has your code, get a new one. The old one stops working.', h('button', { class: 'btn btn--small btn--ghost', type: 'button', text: 'New code', 'data-fr': 'new-code', onclick: onNewCode })),
+    ),
+    h('p', { class: 'lead lead--small' }, 'Messages are kept for 30 days. ',
+      h('a', { href: privacyUrl, target: '_blank', rel: 'noopener', text: 'Privacy' }), ' · ',
+      h('a', { href: supportUrl, target: '_blank', rel: 'noopener', text: 'Help & contact' })),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn btn--danger', type: 'button', text: 'Delete my chat account', 'data-fr': 'delete', onclick: onDelete })),
-    h('p', { class: 'group__title', text: 'Advanced' }),
-    server,
-    h('div', { class: 'btn-row' }, h('button', { class: 'btn btn--ghost', type: 'button', text: 'Change server', onclick: () => onServer(server.value.trim()) })),
+    developer ? h('p', { class: 'group__title', text: 'Developer' }) : null,
+    developer ? server : null,
+    developer ? h('div', { class: 'btn-row' }, h('button', { class: 'btn btn--ghost', type: 'button', text: 'Change server', onclick: () => onServer(server.value.trim()) })) : null,
   );
 }

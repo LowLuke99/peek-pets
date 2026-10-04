@@ -30,8 +30,9 @@ export function privacyPage(env) {
 <li>a random account id and friend code;</li>
 <li>your friend list, friend requests and blocks;</li>
 <li>messages and pet emotes between you and your friends, kept for at most <b>30 days</b> (and at most the last 200 per friend);</li>
-<li>reports you send, with the recent messages they're about, so a person can review them.</li></ul>
-<p>Sign-ups are rate-limited by IP address; the address is used only for that and not kept with your account. We don't sell data, show ads, or use analytics or tracking.</p>
+<li>your best score in each game. Friends see it on the Friends leaderboard. The Everyone leaderboard (your nickname and score, visible to other players) is <b>off unless you switch it on</b>;</li>
+<li>reports you send, with the recent messages they're about, kept for up to 90 days so a person can review them.</li></ul>
+<p>To stop mass sign-ups we count new accounts per network per day using a salted hash of your IP address; it is deleted the next day and never stored with your account. We don't sell data, show ads, or use analytics or tracking.</p>
 <h2>Deleting your data</h2>
 <p>In the app: <b>Friends → ⋯ → Delete my chat account</b>. This removes your account, friends, requests and messages from the server immediately and removes you from your friends' lists. Deleting the app removes everything stored on the phone.</p>
 <h2>Children</h2>
@@ -46,7 +47,8 @@ export function termsPage(env) {
 <ul><li>Be kind. No bullying, harassment, hate, threats, sexual content, spam or sharing other people's private information.</li>
 <li>Only add people you know. Never share passwords, addresses or phone numbers in chat.</li>
 <li>Rude words are filtered automatically; trying to get around the filter breaks these rules.</li>
-<li>You can <b>block</b> anyone (they disappear from your friends and can't message you) and <b>report</b> anyone. Reports are reviewed within 24 hours and accounts that break the rules are removed.</li></ul>
+<li>You can <b>block</b> anyone, including someone who sent you a friend request (they disappear from your friends and can't message you), and <b>report</b> anyone. Reports are reviewed within 24 hours and accounts that break the rules are removed.</li>
+<li>Links, email addresses and phone numbers are hidden in chat. If a stranger has your code, get a new one in Friends → ⋯.</li></ul>
 <p>There is zero tolerance for objectionable content or abusive users. The app is provided as is. Contact: ${contact(env)}.</p>`);
 }
 
