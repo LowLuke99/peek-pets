@@ -1,5 +1,68 @@
 # Build record: Peek Pets
 
+## v3: dress-up, snacks, backdrops, new pets, Mac setup (2026-10-04)
+
+*Built in one session while you were at work. Video: [media/v3-whats-new.mp4](media/v3-whats-new.mp4) (20 s).*
+
+### Phone (v0.3.0)
+| Feature | What it does | Where |
+|---|---|---|
+| **Wardrobe** | 8 items (Bow, Blossom, Party hat, Round specs, Beanie, Shades, Crown, Wizard hat), unlocked by the *best* bond level across all pets (switching pets never locks anything), one outfit per pet. Hats perch with a little follow-through wobble; glasses track the face. | `core/wardrobe.js`, `pet/outfit.js`, Style sheet (hanger icon) |
+| **Snacks** | New dock button → treat bar (🍓🍪🍙🍦🌶️). The treat arcs into the mouth, the pet watches it, opens wide, chomps and chews (crumbs, hearts). Each pet has a secret favourite (♥ once discovered); chili makes everyone steam except Ember; after 4 snacks in 10 min the pet is politely full. Never punitive. | `core/snacks.js`, `play/snacks.js`, acts `aah/chew/nope` |
+| **Backdrops** | Six painted scenes made with Kling (cosy room, sunset beach, forest, space station, snowy cabin, candy clouds), 720 px WebP, ~200 KB total, cached offline. Each image's empty floor spot is lined up under the pet (cover-fit + up to 1.35× zoom). | `core/backdrops.js`, `phone/backdrops/` |
+| **Photo mode** | 📸 in the Style sheet: "Say cheese!", flash + shutter, a polaroid (pet + outfit + backdrop + name/bond/date) with Share (where supported) and Save. Captured from the three stage layers in the same frame they're drawn. | `play/photo.js`, `core/photo.js` |
+| **Shake & tilt** | Settings toggle (iOS asks for motion permission on a tap). Shake → dizzy + "Whoa! Earthquake!"; tilt → the pet leans/slides downhill and the ball rolls. | `core/motion.js`, `play/motion.js` |
+| **4 new pets** | **Inky** (jelly octopus), **Pebble** (mossy stone golem with a sprout), **Lumi** (fuzzy moth, glows at night), **Opal** (crystal dragon, iridescent horns), designed from a Kling concept sheet. | `pet/species/{inky,pebble,lumi,opal}.js` |
+
+New pets describe their body once in `gl()`; **`pet/paint2d.js`** paints the same part list in
+2D for the Classic look, so future pets need no hand-written fallback.
+
+### PC companion
+* **Auto-allow paired phones** (your request): no more "Allow?" pop-up for commands from a
+  paired, authenticated phone. Still enforced: pairing, rate limits, PC permission and phone
+  switch per power, the audit log. Still asks: reading the PC clipboard (every 10 min) and the
+  **microphone** (once, then remembered). A recent "Don't allow" still wins. Toggle: Powers
+  tab → *Auto-allow my paired phones*.
+* **Find cursor** is now a spotlight that **follows the pointer** for 3.6 s: rings sweeping
+  in, a pulsing glow, a spinning sparkle orbit and a little Mochi saying "here!". Preview it
+  without a phone: `PeekPets.Companion.exe --preview-spotlight`.
+
+### Mac
+`docs/MAC-SETUP.md` + `Set up on Mac.command` / `tools/mac/setup-mac.sh`: clone (GitHub
+Desktop, `gh` or ZIP) → double-click → it checks Xcode + Node, installs, syncs and opens Xcode
+→ pick your Personal Team → ▶. `--bundle-id` for free Apple IDs, `--update` to pull my changes.
+
+### Art
+* Kling: **20 credits** (6 backdrops + 3 re-rolls without stray plushies + 1 pet concept sheet;
+  152 left). Raw PNGs stay in `art/kling/` (git-ignored).
+* `docs/ART-PROMPTS.md`: a ChatGPT prompt pack (style bible, 12 more backdrops, 5 pet concept
+  sheets, snack/wardrobe icons, app icon, poster, stickers). Drop results in `art/chatgpt/…`
+  and I'll wire them in.
+
+### Verified
+| Check | Result |
+|---|---|
+| Phone unit tests (`npm test`) | **80/80** (wardrobe, snacks, motion, photo crop, backdrop layout) |
+| Companion tests | **98/98** (auto-allow, ask-first, denial wins, not-paired, rate limits) |
+| v3 end to end (`tools/e2e/v3-test.mjs`) | **21/21**: wardrobe + locks, backdrop, snack flight/chew/favourite/fullness, shake, tilt, photo, new pets in both looks, no page errors |
+| Dock actions suite | 13/13 still |
+| Mac setup script on a real macOS runner (GitHub Actions) | **pass** (1m40s): Xcode + Node checks, install, sync, bundle ID, unsigned build |
+| Find-cursor spotlight | filmed following the real cursor (`tools/spotlight-capture.ps1`) |
+| All 12 pets × 8 items | reviewed on a contact sheet (`tools/e2e/wardrobe-gallery.mjs`) |
+| Code review (separate reviewer agent) | 0 critical/high; mediums fixed (mic ask-first, denial wins, motion permission on tap-up, snack/backdrop edge cases) |
+
+### Not verified on a real iPhone / Mac
+1. Shake & tilt on iOS (permission prompt in Safari and in the app; axis directions in landscape).
+2. Share sheet for photos (`navigator.share` with files) inside the native app; Save falls back to press-and-hold.
+3. Xcode signing with your Apple ID (CI can't sign); everything before that is verified.
+
+### Open decisions for you
+1. Keep auto-allow on? (It's on.) The clipboard read and mic still ask.
+2. Which ChatGPT images do you want first? More backdrops are the easiest win (they drop straight in).
+3. Should outfits/backdrops unlock with achievements (e.g. Crown at a 7-day streak) instead of bond levels?
+
+---
+
 ## v2: helpful powers, clay looks, native iPhone app (2026-10-04)
 
 *Built in one autonomous session from `docs/NEXT-SESSION-PROMPT.md`, in its order: powers →

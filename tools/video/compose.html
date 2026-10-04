@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Peek Pets v0.3 video</title>
+<style>
+  @font-face { font-family: Nunito; font-weight: 700; src: url(../../phone/fonts/nunito-700.woff2); }
+  @font-face { font-family: Nunito; font-weight: 800; src: url(../../phone/fonts/nunito-800.woff2); }
+  @font-face { font-family: Nunito; font-weight: 900; src: url(../../phone/fonts/nunito-900.woff2); }
+  :root { --ink: #3A221C; --soft: #8A6A60; --coral: #F2735F; --cream: #FFF6F0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; font-family: Nunito, sans-serif; color: var(--ink); }
+  body { background: linear-gradient(160deg, #FFF4EC 0%, #FFE3D6 55%, #F9D2C8 100%); }
+  .abs { position: absolute; will-change: transform, opacity; }
+  .blob { border-radius: 50%; opacity: 0.55; }
+  /* phone */
+  #phone { left: 1180px; top: 70px; width: 452px; height: 940px; border-radius: 76px; background: #1d1416; padding: 16px;
+           box-shadow: 0 40px 90px rgba(120, 50, 40, 0.35), inset 0 0 0 3px #3b2f33; }
+  #screen { width: 100%; height: 100%; border-radius: 62px; overflow: hidden; background: #FFF3EC; position: relative; }
+  #screen img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #island { left: 50%; top: 14px; width: 118px; height: 34px; border-radius: 20px; background: #000; transform: translateX(-50%); }
+  #status { left: 0; right: 0; top: 16px; height: 30px; display: flex; justify-content: space-between; padding: 0 44px 0 52px; font-weight: 800; font-size: 19px; color: #2b1d19; }
+  #status svg { height: 15px; }
+  h1 { margin: 0; font-weight: 900; letter-spacing: -0.02em; }
+  .kicker { font-weight: 900; font-size: 26px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--coral); }
+  .pill { display: inline-block; padding: 10px 22px; border-radius: 999px; background: #fff; font-weight: 900; font-size: 26px; box-shadow: 0 8px 24px rgba(122, 59, 42, 0.12); }
+  .feat { display: flex; align-items: center; gap: 22px; height: 92px; padding: 0 28px; border-radius: 28px; font-weight: 900; font-size: 44px; margin-bottom: 14px; transform-origin: left center; }
+  .feat i { font-style: normal; font-size: 46px; width: 60px; text-align: center; }
+  .feat small { display: block; font-size: 22px; font-weight: 700; color: var(--soft); margin-top: -4px; }
+  .step { display: flex; gap: 26px; align-items: flex-start; padding: 24px 30px; border-radius: 30px; margin-bottom: 18px; width: 900px; }
+  .num { flex: none; width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 38px; background: #fff; color: var(--coral); box-shadow: 0 6px 18px rgba(122, 59, 42, 0.15); }
+  .step b { display: block; font-size: 40px; font-weight: 900; line-height: 1.1; }
+  .step span { display: block; font-size: 25px; font-weight: 700; color: var(--soft); margin-top: 6px; }
+  code { font-family: Consolas, 'SF Mono', monospace; font-size: 0.92em; background: rgba(122, 59, 42, 0.08); padding: 2px 10px; border-radius: 8px; color: var(--ink); }
+  .card { background: rgba(255, 255, 255, 0.82); border-radius: 30px; box-shadow: 0 18px 50px rgba(122, 59, 42, 0.14); }
+  #desk { left: 110px; top: 210px; width: 980px; height: 600px; border-radius: 26px; overflow: hidden;
+          background: linear-gradient(135deg, #5B6BD8, #9C7BE0 55%, #F2A3B8); box-shadow: 0 30px 70px rgba(60, 40, 90, 0.35); }
+  #desk .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 58px; background: rgba(255, 255, 255, 0.55); }
+  #desk .win { position: absolute; border-radius: 14px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
+  #spot { width: 420px; height: 420px; margin: -210px 0 0 -210px; }
+  #cursor { width: 34px; height: 50px; }
+  #term { font-family: Consolas, 'SF Mono', monospace; font-size: 25px; line-height: 1.55; color: #E8E0F0; background: #241b2e; border-radius: 22px; padding: 56px 32px 28px; width: 680px; height: 340px; box-shadow: 0 24px 60px rgba(40, 20, 60, 0.35); }
+  #term .dots { position: absolute; left: 24px; top: 20px; display: flex; gap: 10px; }
+  #term .dots i { width: 16px; height: 16px; border-radius: 50%; display: block; }
+  #term .ok { color: #8FE3A8; }
+  #term .paw { color: #F59BD0; font-weight: 700; }
+  .xcode { font-size: 26px; font-weight: 800; }
+</style>
+</head>
+<body>
+  <div class="abs blob" id="blobA" style="left:-320px;top:-360px;width:1160px;height:1020px;background:radial-gradient(closest-side,#FFC7B4,rgba(255,199,180,0))"></div>
+  <div class="abs blob" id="blobB" style="left:980px;top:440px;width:1220px;height:960px;background:radial-gradient(closest-side,#FBD0E6,rgba(251,208,230,0))"></div>
+
+  <!-- S1 hero -->
+  <div class="abs" id="s1" style="left:140px;top:250px;width:980px">
+    <div class="kicker">New today · v0.3</div>
+    <h1 style="font-size:150px;line-height:1.02;margin-top:14px">Peek Pets</h1>
+    <p style="font-size:44px;font-weight:800;color:var(--soft);margin:26px 0 0;line-height:1.25">A little pet on your iPhone<br>that watches your PC cursor.</p>
+  </div>
+
+  <!-- S2 features -->
+  <div class="abs" id="s2" style="left:140px;top:110px;width:960px">
+    <div class="kicker" style="margin-bottom:26px">What's new</div>
+    <div class="feat" id="f0"><i>👑</i><div>Dress up<small>8 hats &amp; glasses, unlocked by bond</small></div></div>
+    <div class="feat" id="f1"><i>🍙</i><div>Snack time<small>every pet has a favourite</small></div></div>
+    <div class="feat" id="f2"><i>🏝️</i><div>Backdrops<small>six painted worlds</small></div></div>
+    <div class="feat" id="f3"><i>🐙</i><div>4 new pets<small>Inky · Pebble · Lumi · Opal</small></div></div>
+    <div class="feat" id="f4"><i>📳</i><div>Shake &amp; tilt<small>dizzy pets, rolling ball</small></div></div>
+    <div class="feat" id="f5"><i>📸</i><div>Photo mode<small>polaroids to save &amp; share</small></div></div>
+  </div>
+
+  <!-- S3 PC side -->
+  <div class="abs" id="s3t" style="left:110px;top:80px;width:1000px">
+    <div class="kicker">On your PC</div>
+    <h1 style="font-size:64px;margin-top:8px">Lost your cursor? Ask your pet.</h1>
+  </div>
+  <div class="abs" id="desk">
+    <div class="win" style="left:60px;top:60px;width:420px;height:260px"></div>
+    <div class="win" style="left:520px;top:120px;width:380px;height:330px"></div>
+    <div class="bar"></div>
+    <svg class="abs" id="spot" viewBox="-210 -210 420 420">
+      <defs><radialGradient id="g"><stop offset="0" stop-color="#FFD36B" stop-opacity="0.75"/><stop offset="0.4" stop-color="#F2735F" stop-opacity="0.4"/><stop offset="1" stop-color="#F2735F" stop-opacity="0"/></radialGradient></defs>
+      <circle id="glow" r="130" fill="url(#g)"/>
+      <circle class="ring" r="200" fill="none" stroke="#F2735F" stroke-width="7"/>
+      <circle class="ring" r="200" fill="none" stroke="#F2735F" stroke-width="7"/>
+      <circle class="ring" r="200" fill="none" stroke="#F2735F" stroke-width="7"/>
+      <g id="orbit"><circle r="60" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="6 6"/>
+        <path d="M0,-71 l3,8 8,3 -8,3 -3,8 -3,-8 -8,-3 8,-3z" fill="#FFD36B"/><path d="M0,49 l3,8 8,3 -8,3 -3,8 -3,-8 -8,-3 8,-3z" fill="#FFD36B"/>
+        <path d="M-71,0 l3,8 8,3 -8,3 -3,8 -3,-8 -8,-3 8,-3z" transform="translate(11,-11)" fill="#FFD36B"/><path d="M49,0 l3,8 8,3 -8,3 -3,8 -3,-8 -8,-3 8,-3z" transform="translate(11,-11)" fill="#FFD36B"/></g>
+      <g id="mochi" transform="translate(70,-110)">
+        <rect x="-4" y="-40" width="74" height="30" rx="12" fill="#fff"/><text x="33" y="-19" font-family="Nunito" font-weight="900" font-size="18" text-anchor="middle" fill="#3A221C">here!</text>
+        <path d="M32,0 C50,0 60,16 62,32 C64,46 54,50 32,50 C10,50 0,46 2,32 C4,16 14,0 32,0 Z" fill="#F2735F"/>
+        <path d="M32,11 C46,11 54,17 54,25 C54,34 45,38 32,38 C19,38 10,34 10,25 C10,17 18,11 32,11 Z" fill="#FFE9DD"/>
+        <circle cx="22" cy="24" r="5" fill="#3A231E"/><circle cx="42" cy="24" r="5" fill="#3A231E"/></g>
+    </svg>
+    <svg class="abs" id="cursor" viewBox="0 0 34 50"><path d="M2,2 L2,40 L12,30 L19,47 L26,44 L19,28 L32,28 Z" fill="#fff" stroke="#1d1416" stroke-width="3" stroke-linejoin="round"/></svg>
+  </div>
+  <div class="abs card" id="auto" style="left:110px;top:850px;width:980px;padding:26px 34px;font-size:30px;font-weight:800;display:flex;align-items:center;gap:22px">
+    <span style="width:74px;height:42px;border-radius:21px;background:#F2735F;position:relative;flex:none"><i style="position:absolute;right:5px;top:5px;width:32px;height:32px;border-radius:50%;background:#fff"></i></span>
+    Powers now auto-allow your paired phone: no more pop-ups
+  </div>
+
+  <!-- S4 setup -->
+  <div class="abs" id="s4" style="left:110px;top:90px;width:1000px">
+    <div class="kicker">Set up in 3 steps</div>
+    <h1 style="font-size:64px;margin:8px 0 34px">PC + iPhone, same Wi-Fi</h1>
+    <div class="step" id="st0"><div class="num">1</div><div><b>Start Peek Pets Companion on the PC</b><span>Desktop shortcut, or <code>Start Peek Pets.cmd</code></span></div></div>
+    <div class="step" id="st1"><div class="num">2</div><div><b>Open the app → tap your PC</b><span>"Find your PC" lists it automatically</span></div></div>
+    <div class="step" id="st2"><div class="num">3</div><div><b>Type the code it shows → linked!</b><span>Move your mouse: the eyes follow</span></div></div>
+  </div>
+  <img class="abs" id="companion" src="../../docs/img/companion-window.png" alt="" style="left:560px;top:600px;width:470px;border-radius:14px;box-shadow:0 24px 60px rgba(80,30,20,0.3)">
+
+  <!-- S5 Mac -->
+  <div class="abs" id="s5" style="left:110px;top:90px;width:1000px">
+    <div class="kicker">Get it on your Mac</div>
+    <h1 style="font-size:64px;margin:8px 0 30px">Build the iPhone app in Xcode</h1>
+    <div class="step" id="m0"><div class="num">1</div><div><b>Clone LowLuke99/peek-pets</b><span>GitHub Desktop, or <code>gh repo clone</code></span></div></div>
+    <div class="step" id="m1"><div class="num">2</div><div><b>Double-click "Set up on Mac.command"</b><span>checks Xcode + Node, syncs, opens Xcode</span></div></div>
+    <div class="step" id="m2"><div class="num">3</div><div><b>Team → your Apple ID, then ▶ Run</b><span>plug in the iPhone · guide: <code>docs/MAC-SETUP.md</code></span></div></div>
+  </div>
+  <div class="abs" id="term"><div class="dots"><i style="background:#FF6B5F"></i><i style="background:#FFC53D"></i><i style="background:#3FCB57"></i></div><div id="termText"></div></div>
+
+  <!-- end card -->
+  <div class="abs" id="end" style="left:0;top:0;width:1920px;height:1080px;display:grid;place-items:center;text-align:center">
+    <div>
+      <img src="../../phone/icons/icon-512.png" alt="" style="width:220px;height:220px;border-radius:52px;box-shadow:0 24px 60px rgba(120,50,40,0.3)">
+      <h1 style="font-size:110px;margin-top:30px">Peek Pets</h1>
+      <p style="font-size:38px;font-weight:800;color:var(--soft);margin:12px 0 0">Have fun with the new pets!</p>
+    </div>
+  </div>
+
+  <div class="abs" id="phone"><div id="screen"><img id="clip" alt=""><div class="abs" id="status"><span>9:41</span><svg viewBox="0 0 64 15"><rect x="0" y="9" width="4" height="6" rx="1"/><rect x="6" y="6" width="4" height="9" rx="1"/><rect x="12" y="3" width="4" height="12" rx="1"/><rect x="18" y="0" width="4" height="15" rx="1"/><rect x="32" y="1" width="26" height="13" rx="4" fill="none" stroke="#2b1d19" stroke-width="1.6"/><rect x="34.5" y="3.5" width="18" height="8" rx="2"/><rect x="59.5" y="5" width="2.5" height="5" rx="1"/></svg></div><div class="abs" id="island"></div></div></div>
+
+<script>
+const FPS = 30;
+const CLIPS = { hero: 96, wardrobe: 66, snack: 60, backdrops: 56, pets: 64, shake: 40, photo: 54, pair: 102 };
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const ease = (x) => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2; };
+const out = (x) => 1 - (1 - clamp(x)) ** 3;
+const back = (x) => { x = clamp(x); const c = 1.6; return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2; };
+/** 0→1 fade in over [a, a+d], 1→0 fade out over [b-d, b]. */
+const life = (t, a, b, d = 0.35) => Math.min(out((t - a) / d), out((b - t) / d));
+function set(el, o, x = 0, y = 0, s = 1) {
+  el.style.opacity = o.toFixed(3);
+  el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${s.toFixed(4)})`;
+  el.style.visibility = o < 0.002 ? 'hidden' : 'visible';
+}
+function frameOf(name, local, speed = 1, start = 0) {
+  return `clips/${name}/${String(Math.min(CLIPS[name] - 1, Math.max(0, Math.floor(start + local * FPS * speed)))).padStart(4, '0')}.jpg`;
+}
+
+// Feature segments (seconds) and their clips: [start, end, clip, speed, firstFrame]
+const FEATS = [[2.6, 3.95, 'wardrobe', 1, 4], [3.95, 5.4, 'snack', 1, 2], [5.4, 6.6, 'backdrops', 1.5, 0], [6.6, 7.9, 'pets', 1.5, 0], [7.9, 8.95, 'shake', 1, 2], [8.95, 10.4, 'photo', 1, 0]];
+const TERM = [
+  ['<span class="paw">🐾 Peek Pets Mac setup</span>', 0],
+  ['   <span class="ok">✓</span> Xcode 26.0', 0.35],
+  ['   <span class="ok">✓</span> Node v22', 0.6],
+  ['   <span class="ok">✓</span> Packages installed', 0.95],
+  ['   <span class="ok">✓</span> Web app synced (93 files)', 1.3],
+  ['<span class="paw">🐾 Opening Xcode…</span>', 1.7],
+];
+
+function drawFrame(t) {
+  // background drift
+  set($('blobA'), 0.55, Math.sin(t * 0.4) * 60, Math.cos(t * 0.3) * 40);
+  set($('blobB'), 0.55, Math.cos(t * 0.35) * 70, Math.sin(t * 0.45) * 40);
+
+  // ---- phone: which clip is on screen
+  let src;
+  if (t < 2.6) src = frameOf('hero', t, 1, 0);
+  else if (t < 10.4) { const f = FEATS.find(([a, b]) => t < b) ?? FEATS[FEATS.length - 1]; src = frameOf(f[2], t - f[0], f[3], f[4]); }
+  else if (t < 13.2) src = frameOf('hero', t - 10.4, 1, 10);
+  else if (t < 16.6) src = frameOf('pair', t - 13.2, 1, 0);
+  else src = frameOf('pair', t - 16.6, 1, 101);
+  const clip = $('clip');
+  if (!clip.src.endsWith(src)) clip.src = src;
+  const phoneIn = back((t - 0.15) / 0.8);
+  const phoneOut = t > 16.55 ? out((t - 16.55) / 0.5) : 0; // the Mac section belongs to the terminal
+  set($('phone'), 1 - phoneOut, phoneOut * 260, (1 - phoneIn) * 600, 1 - phoneOut * 0.1);
+
+  // ---- S1
+  const s1 = life(t, 0.25, 2.75);
+  set($('s1'), s1, (1 - out((t - 0.25) / 0.7)) * -80, 0);
+
+  // ---- S2 features list
+  const s2 = life(t, 2.45, 10.55);
+  set($('s2'), s2, (1 - out((t - 2.45) / 0.5)) * -60);
+  FEATS.forEach(([a, b], i) => {
+    const el = $(`f${i}`);
+    const on = t >= a && t < b;
+    const k = on ? out((t - a) / 0.25) : t >= b ? 1 - out((t - b) / 0.25) : 0;
+    el.style.background = `rgba(255,255,255,${(0.92 * k).toFixed(3)})`;
+    el.style.boxShadow = k > 0.01 ? `0 14px 40px rgba(122,59,42,${(0.16 * k).toFixed(3)})` : 'none';
+    const appear = out((t - 2.6 - i * 0.12) / 0.4);
+    el.style.opacity = (appear * (0.45 + 0.55 * Math.max(k, t < 2.9 ? 1 : 0))).toFixed(3);
+    el.style.transform = `translateX(${((1 - appear) * -40).toFixed(1)}px) scale(${(1 + 0.06 * k).toFixed(3)})`;
+  });
+
+  // ---- S3 PC side
+  const s3 = life(t, 10.35, 13.35);
+  set($('s3t'), s3, 0, (1 - out((t - 10.35) / 0.5)) * 30);
+  set($('desk'), s3, 0, (1 - out((t - 10.45) / 0.5)) * 40, 0.96 + 0.04 * out((t - 10.45) / 0.5));
+  set($('auto'), life(t, 11.6, 13.35), 0, (1 - out((t - 11.6) / 0.45)) * 30);
+  const u = clamp((t - 10.5) / 2.6);
+  const cx = 160 + 640 * ease(u), cy = 420 - 230 * Math.sin(Math.PI * u) + 40 * Math.sin(u * 9);
+  set($('cursor'), s3, cx, cy);
+  const spotOn = clamp((t - 10.9) / 0.25) * clamp((13.2 - t) / 0.3);
+  set($('spot'), spotOn, cx + 6, cy + 4);
+  const st = t - 10.9;
+  [...document.querySelectorAll('#spot .ring')].forEach((r, i) => {
+    const p = ((st - i * 0.23) % 0.76 + 0.76) % 0.76 / 0.76;
+    r.setAttribute('r', (200 * (1 - 0.88 * p * p)).toFixed(1));
+    r.setAttribute('opacity', (st - i * 0.23 > 0 ? (p < 0.15 ? p / 0.15 : 1 - p) * 0.9 : 0).toFixed(3));
+  });
+  $('glow').setAttribute('r', (130 * (0.9 + 0.12 * Math.sin(t * 7.5))).toFixed(1));
+  $('orbit').setAttribute('transform', `rotate(${(st * 225) % 360})`);
+  const pop = back((t - 11.15) / 0.45);
+  $('mochi').setAttribute('transform', `translate(${70},${(-110 + Math.sin(t * 8) * 4).toFixed(1)}) scale(${Math.max(0.01, pop).toFixed(3)})`);
+
+  // ---- S4 setup
+  const s4 = life(t, 13.1, 16.75);
+  set($('s4'), s4, 0, (1 - out((t - 13.1) / 0.5)) * 30);
+  const steps = [[13.3, 14.3], [14.3, 15.3], [15.3, 16.75]];
+  steps.forEach(([a, b], i) => {
+    const el = $(`st${i}`);
+    const k = t >= a && t < b ? out((t - a) / 0.25) : t >= b ? 1 - out((t - b) / 0.2) : 0;
+    el.style.background = `rgba(255,255,255,${(0.9 * k).toFixed(3)})`;
+    el.style.boxShadow = k > 0.01 ? `0 14px 40px rgba(122,59,42,${(0.15 * k).toFixed(3)})` : 'none';
+    el.style.opacity = (out((t - 13.3 - i * 0.15) / 0.35) * (0.5 + 0.5 * Math.max(k, t >= 16.3 ? 1 : 0))).toFixed(3);
+  });
+  set($('companion'), life(t, 13.4, 14.6, 0.3), 0, (1 - out((t - 13.4) / 0.4)) * 40, 0.95 + 0.05 * out((t - 13.4) / 0.4));
+
+  // ---- S5 Mac
+  const s5 = life(t, 16.55, 19.0);
+  set($('s5'), s5, (1 - out((t - 16.55) / 0.5)) * -50, 0);
+  [[16.75], [17.35], [17.95]].forEach(([a], i) => {
+    const el = $(`m${i}`);
+    const k = out((t - a) / 0.35);
+    el.style.opacity = k.toFixed(3);
+    el.style.background = `rgba(255,255,255,${(0.88 * k).toFixed(3)})`;
+    el.style.transform = `translateX(${((1 - k) * -40).toFixed(1)}px)`;
+  });
+  const termK = life(t, 17.1, 19.0);
+  $('term').style.left = '1140px'; $('term').style.top = '400px';
+  set($('term'), termK, (1 - out((t - 17.1) / 0.45)) * 80, 0);
+  const tt = t - 17.2;
+  $('termText').innerHTML = TERM.filter(([, at]) => tt >= at).map(([l]) => l).join('<br>');
+
+  // ---- end card
+  set($('end'), out((t - 18.85) / 0.45), 0, (1 - out((t - 18.85) / 0.6)) * 30, 0.96 + 0.04 * out((t - 18.85) / 0.6));
+  $('end').style.background = `rgba(255,244,236,${(0.0 + 0.9 * out((t - 18.85) / 0.45)).toFixed(3)})`;
+}
+
+window.render = async (t) => {
+  drawFrame(t);
+  const img = $('clip');
+  if (!img.complete) await new Promise((r) => { img.onload = img.onerror = r; });
+  await document.fonts.ready;
+};
+</script>
+</body>
+</html>

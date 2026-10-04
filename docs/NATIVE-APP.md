@@ -17,6 +17,9 @@ The iPhone app is the same phone web app (`phone/`) wrapped with **Capacitor 8**
 > small relay server (see "Future: push" below). I built and checked everything I could from
 > Windows, but **nothing here has run on a real iPhone yet**.
 
+> **Have a Mac?** That's the easiest route: [MAC-SETUP.md](MAC-SETUP.md) (clone, one
+> script, press ▶ in Xcode; renewing is one click).
+
 ## Install option A: Sideloadly (free Apple ID, re-install every 7 days)
 
 1. **Get the app file.** On GitHub open

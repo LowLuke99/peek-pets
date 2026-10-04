@@ -74,7 +74,7 @@ only read while shared.
 | `ping` | Every 2 s. Also the liveness heartbeat: no message in 6 s means the phone treats the link as dead and reconnects. |
 | `sub` | `{cursorHz?, paused?}`: phone screen off pauses the stream. |
 | `stats` | `{rtt, fps, lat}` shown in the companion window. |
-| `event` | `{name}` ≤ 32 chars: `boop`, `pet`, `hug`, `play`, `cheer`, `dance`, `sleep`. Lets the PC side react later (e.g. a desktop pet, or an AI that knows you just played). |
+| `event` | `{name}` ≤ 32 chars: `boop`, `pet`, `hug`, `play`, `cheer`, `dance`, `sleep`, and since v0.3 `snack`, `outfit`, `photo`, `shake`. Lets the PC side react later (e.g. a desktop pet, or an AI that knows you just played). |
 
 ## Latency accounting
 The phone estimates the PC→phone clock offset NTP-style, keeping the lowest-RTT sample of

@@ -11,3 +11,6 @@ tools/e2e/out-*.log
 
 # raw generated art (keep locally; compressed copies live in phone/)
 art/**/*.png
+tools/video/clips/
+tools/video/frames/
+tools/video/out-pair/

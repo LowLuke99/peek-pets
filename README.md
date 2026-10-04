@@ -64,7 +64,10 @@ fine; the installed app encrypts everything. Remove the certificate any time in
 
 | Leave it alone ~2 min | gets sleepy, then naps (faster at night). Wakes when you return |
 | Close the PC app | looks around for it, then settles. Never sulks |
-| Avatar (top-left) | switch between 8 pets, each with its own bond level |
+| Avatar (top-left) | switch between 12 pets, each with its own bond level |
+| **Snack** | pick a treat: it arcs into the pet's mouth, chomp chomp. Every pet has a favourite; chili is a joke (except for Ember) |
+| **Style** (hanger, top bar) | wardrobe (8 hats & glasses, unlocked by bond), six painted **backdrops**, and **📸 photo mode** (a polaroid to save or share) |
+| Shake the phone | dizzy pet (Settings → **Shake & tilt**). Tilt it: the pet leans and the ball rolls downhill |
 
 The PC window also has **Say something**: type a line and the pet says it on the phone
 (the hook future AI features will use), plus toggles for exactly what the PC shares.
@@ -77,11 +80,22 @@ The PC window also has **Say something**: type a line and the pet says it on the
 | **Nimbus** | glowing blue jelly with a curly tail; shimmers and bubbles |
 | **Plum** | starry orb with a 3-D orbiting ring and a tiny moon |
 | **Sprig** | mint/charcoal visor bot with glowing eyes and floating limbs |
-| **Ember** *(new)* | flame sprite: fire grows when happy, embers when sleepy |
-| **Puff** *(new)* | cloud: drizzles while waiting for the PC, rainbow when overjoyed |
-| **Bun** *(new)* | marshmallow bunny with spring-physics floppy ears |
+| **Ember** | flame sprite: fire grows when happy, embers when sleepy |
+| **Puff** | cloud: drizzles while waiting for the PC, rainbow when overjoyed |
+| **Bun** | marshmallow bunny with spring-physics floppy ears |
+| **Inky** *(new)* | glowing jelly octopus with six curly arms |
+| **Pebble** *(new)* | mossy stone golem with a sprout on a spring |
+| **Lumi** *(new)* | fuzzy lilac moth on flapping glassy wings (glows more at night) |
+| **Opal** *(new)* | chubby crystal dragon hatchling with shimmering horns |
+
+**What's new in v0.3 (20-second video):** [docs/media/v3-whats-new.mp4](docs/media/v3-whats-new.mp4)
 
 ![Expressions](docs/img/all-pets-expressions.png)
+
+## iPhone app & Mac
+* Real iPhone app: [docs/NATIVE-APP.md](docs/NATIVE-APP.md) (Sideloadly or TestFlight from Windows).
+* **Have a Mac?** [docs/MAC-SETUP.md](docs/MAC-SETUP.md): clone, double-click `Set up on Mac.command`, press ▶ in Xcode.
+* Art: [docs/ART-PROMPTS.md](docs/ART-PROMPTS.md) is a ChatGPT/Kling prompt pack for more backdrops, pets and icons.
 
 ## For developers
 ```
@@ -95,11 +109,13 @@ tools/e2e/         Playwright: live-test (real cursor → phone), app-mode-test,
 docs/              PROTOCOL.md, BUILD-RECORD.md, screenshots, recording
 ```
 ```
-npm test                                  # phone logic (40 tests)
-dotnet test companion.tests               # companion (38 tests)
+npm test                                  # phone logic (80 tests)
+dotnet test companion.tests               # companion (98 tests)
 node tools/e2e/live-test.mjs chromium     # end-to-end with your real cursor (moves your mouse!)
 node tools/e2e/app-mode-test.mjs          # installable app + offline
 node tools/e2e/actions-test.mjs          # dock actions, toys, petting, all pets (needs companion on :8787)
+node tools/e2e/v3-test.mjs                # wardrobe, backdrops, snacks, shake & tilt, photo, new pets
+node tools/video/film.mjs && node tools/video/render.mjs   # re-make the what's-new video
 powershell -File tools/publish.ps1        # standalone companion for a friend (no .NET needed)
 ```
 The companion serves `phone/` straight from this checkout, so edits show up on the phone after a refresh.
