@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using PeekPets.Companion.Facts;
+using PeekPets.Companion.Powers;
 using PeekPets.Companion.Sensors;
 
 namespace PeekPets.Companion.Server;
@@ -22,7 +23,8 @@ public sealed class PetServer : IAsyncDisposable
 {
     public const int ProtocolVersion = 1;
     public const int MaxSessions = 8;
-    private const int MaxMessageBytes = 8 * 1024;
+    private const int MaxMessageBytes = 16 * 1024;
+    private const int MaxCommandsInFlight = 8;
     private const int MaxUnauthedPerIp = 2;
     private static readonly TimeSpan AuthTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan SilenceTimeout = TimeSpan.FromSeconds(20);
@@ -46,6 +48,10 @@ public sealed class PetServer : IAsyncDisposable
     public string CaFingerprintShort => _certs?.AuthorityFingerprint[..23] ?? "";
     /// <summary>Bind to 127.0.0.1 only (testing; no phones, no firewall prompt).</summary>
     public bool LoopbackOnly { get; init; }
+    /// <summary>The helpful-powers host (null = powers disabled).</summary>
+    public PowerHost? Powers { get; init; }
+    /// <summary>Expose /api/test/* (only honoured together with <see cref="LoopbackOnly"/>; used by the e2e harness).</summary>
+    public bool TestHooks { get; init; }
     public string Version { get; } = typeof(PetServer).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
 
     public event Action? SessionsChanged;
@@ -67,6 +73,13 @@ public sealed class PetServer : IAsyncDisposable
         _sampler.ButtonDown += OnButtons;
         _sampler.LayoutChanged += layout => Broadcast(ScreensMessage(layout));
         _facts.Changed += (key, value) => Broadcast(new { t = "fact", key, value });
+    }
+
+    private void AttachPowers()
+    {
+        if (Powers is null) return;
+        Powers.Broadcast = Broadcast;
+        Powers.Start();
     }
 
     public IReadOnlyList<ClientSession> Sessions { get { lock (_gate) return _sessions.ToList(); } }
@@ -120,6 +133,8 @@ public sealed class PetServer : IAsyncDisposable
             app.MapGet("/ca.crt", () => Results.File(_certs.AuthorityDer, "application/x-x509-ca-cert", "PeekPets-Local-CA.crt"));
         }
         app.Map("/ws", HandleSocketAsync);
+        if (Powers is not null) app.MapPost("/api/inbox", HandleInboxUploadAsync);
+        if (TestHooks && LoopbackOnly && Powers is not null) TestRoutes.Map(app, Powers);
 
         var files = new PhysicalFileProvider(PhoneRoot);
         var types = new FileExtensionContentTypeProvider();
@@ -129,6 +144,7 @@ public sealed class PetServer : IAsyncDisposable
 
         await app.StartAsync(_shutdown.Token);
         _app = app;
+        AttachPowers();
         Log?.Invoke($"Listening on port {_settings.Port}, serving {PhoneRoot}");
     }
 
@@ -230,7 +246,69 @@ public sealed class PetServer : IAsyncDisposable
                 var name = Str(m, "name");
                 if (name is { Length: > 0 and <= 32 }) PetEvent?.Invoke(s.DisplayName, name);
                 break;
+            case "power_set":
+                if (Powers is not null && Str(m, "key") is { Length: <= 32 } key && m.TryGetProperty("on", out var on) && on.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    Powers.SetPhoneOn(key, on.GetBoolean());
+                break;
+            case "power_ack":
+                Powers?.Ack(Str(m, "key"), Str(m, "action"), Str(m, "kind"));
+                break;
+            case "cmd":
+                StartCommand(s, m);
+                break;
         }
+    }
+
+    /// <summary>
+    /// Runs a phone → PC command in the background: it may wait up to a minute for approval
+    /// on the PC, and the receive loop must keep answering pings meanwhile.
+    /// </summary>
+    private void StartCommand(ClientSession s, JsonElement m)
+    {
+        if (Powers is null || s.Device is not { } device) return;
+        if (Num(m, "id") is not double idNum || idNum < 0 || idNum > int.MaxValue) return;
+        int id = (int)idNum;
+        if (Interlocked.Increment(ref s.CommandsInFlight) > MaxCommandsInFlight)
+        {
+            Interlocked.Decrement(ref s.CommandsInFlight);
+            s.Enqueue(new { t = "cmd_result", id, ok = false, reason = "busy" });
+            return;
+        }
+        var power = Str(m, "power");
+        var command = Str(m, "name");
+        var args = m.TryGetProperty("args", out var a) && a.ValueKind == JsonValueKind.Object ? a.Clone() : default;
+        var caller = new CommandCaller(device.Id, device.Name, s.Id);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var result = await Powers.RunCommandAsync(caller, power, command, args, onPending: () => s.Enqueue(new { t = "cmd_pending", id }));
+                s.Enqueue(new { t = "cmd_result", id, ok = result.Ok, reason = result.Reason, data = result.Data });
+            }
+            catch (Exception ex)
+            {
+                Log?.Invoke($"Command {power}.{command} crashed: {ex.Message}");
+                s.Enqueue(new { t = "cmd_result", id, ok = false, reason = "error" });
+            }
+            finally { Interlocked.Decrement(ref s.CommandsInFlight); }
+        });
+    }
+
+    /// <summary>POST /api/inbox: a photo from the phone (Bearer device token, same checks as any command).</summary>
+    private async Task HandleInboxUploadAsync(HttpContext ctx)
+    {
+        if (!SameOrigin(ctx)) { ctx.Response.StatusCode = StatusCodes.Status403Forbidden; return; }
+        var auth = ctx.Request.Headers.Authorization.ToString();
+        var token = auth.StartsWith("Bearer ", StringComparison.Ordinal) ? auth[7..].Trim() : null;
+        var ip = ctx.Connection.RemoteIpAddress ?? IPAddress.None;
+        var who = _pairing.AuthWithToken(token, ip);
+        if (!who.Ok || who.Device is null) { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return; }
+        if (ctx.Request.ContentLength > InboxStore.MaxImageBytes) { ctx.Response.StatusCode = StatusCodes.Status413PayloadTooLarge; return; }
+        var caller = new CommandCaller(who.Device.Id, who.Device.Name, "upload:" + ip);
+        var result = await Powers!.RunCommandAsync(caller, "handoff", "send_photo", default,
+            invoke: p => ((HandoffPower)p).ReceivePhotoAsync(ctx.Request.Body, caller, ctx.RequestAborted));
+        ctx.Response.StatusCode = result.Ok ? 200 : result.Reason == "not_an_image" ? 415 : 403;
+        await ctx.Response.WriteAsJsonAsync(new { ok = result.Ok, reason = result.Reason, data = result.Data });
     }
 
     private async Task AuthenticateAsync(ClientSession s, JsonElement m)
@@ -262,6 +340,7 @@ public sealed class PetServer : IAsyncDisposable
             catalog = _facts.Providers.Select(p => new { key = p.Key, label = p.Label, description = p.Description }),
         });
         s.EnqueueRaw(JsonSerializer.Serialize(ScreensMessage(_sampler.Layout)));
+        if (Powers is not null) s.Enqueue(Powers.ListMessage());
         UpdateListener(false, s);
         if (_sampler.Latest is { } latest && _settings.IsShared("cursor")) s.EnqueueCursor(latest);
         Log?.Invoke(result.NewToken is not null ? $"Paired new phone: {s.DisplayName}" : $"{s.DisplayName} connected");
@@ -341,6 +420,8 @@ public sealed class PetServer : IAsyncDisposable
     {
         var origin = ctx.Request.Headers.Origin.ToString();
         if (string.IsNullOrEmpty(origin)) return true; // non-browser clients
+        // The native iPhone app (Capacitor) loads its pages from this origin. Web pages can't claim it.
+        if (origin is "capacitor://localhost" or "ionic://localhost") return true;
         return Uri.TryCreate(origin, UriKind.Absolute, out var uri)
             && string.Equals(uri.Authority, ctx.Request.Host.Value, StringComparison.OrdinalIgnoreCase);
     }
@@ -392,5 +473,6 @@ public sealed class PetServer : IAsyncDisposable
         }
         _sampler.Dispose();
         _facts.Dispose();
+        Powers?.Dispose();
     }
 }

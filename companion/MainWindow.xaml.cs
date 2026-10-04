@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using PeekPets.Companion.Powers;
 using PeekPets.Companion.Sensors;
 using PeekPets.Companion.Server;
 using QRCoder;
@@ -25,9 +26,10 @@ public partial class MainWindow : Window
     private string _baseUrl = "";
     private Point _pupilL, _pupilR;
 
-    public MainWindow(PetServer server, Pairing pairing, CompanionSettings settings, CursorSampler sampler)
+    public MainWindow(PetServer server, Pairing pairing, CompanionSettings settings, CursorSampler sampler, PowerHost powers)
     {
         InitializeComponent();
+        _powers = powers;
         _server = server;
         _pairing = pairing;
         _settings = settings;
@@ -42,6 +44,7 @@ public partial class MainWindow : Window
         _pairing.DevicesChanged += () => Dispatcher.BeginInvoke(RefreshPhones);
 
         BuildShareToggles();
+        InitPowers();
         _slowTimer.Tick += (_, _) => OnSlowTick();
         _eyeTimer.Tick += (_, _) => FollowCursor();
         _eyeTimer.Start();
@@ -122,7 +125,7 @@ public partial class MainWindow : Window
         if (s.Device is { } device)
         {
             var forget = new Button { Content = "Forget", Style = (Style)FindResource("PillButton"), Padding = new Thickness(10, 4, 10, 4), FontSize = 12 };
-            forget.Click += (_, _) => { _pairing.Forget(device.Id); _ = s.CloseAsync("forgotten"); AddLog($"Forgot {device.Name}"); };
+            forget.Click += (_, _) => { _pairing.Forget(device.Id); _powers.ForgetDevice(device.Id); _ = s.CloseAsync("forgotten"); AddLog($"Forgot {device.Name}"); };
             Grid.SetColumn(forget, 1);
             row.Children.Add(forget);
         }

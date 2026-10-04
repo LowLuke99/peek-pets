@@ -1,7 +1,7 @@
 <Window x:Class="PeekPets.Companion.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Peek Pets Companion" Width="940" Height="660" MinWidth="760" MinHeight="560"
+        Title="Peek Pets Companion" Width="980" Height="720" MinWidth="780" MinHeight="580"
         Background="{StaticResource Paper}" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14"
         Foreground="{StaticResource Ink}" WindowStartupLocation="CenterScreen" Icon="app.ico">
     <Grid Margin="22">
@@ -60,8 +60,10 @@
             </Border>
         </DockPanel>
 
-        <!-- Right: status, sharing, tools -->
-        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+        <!-- Right: tabs (phone + sharing, powers, labs scorecard) -->
+        <TabControl Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="0" x:Name="Tabs">
+        <TabItem Header="Phone" Style="{StaticResource PillTab}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <Border x:Name="FirewallBanner" Visibility="Collapsed" Background="#FFF0DC" CornerRadius="16" Padding="16,12" Margin="0,0,0,14" BorderBrush="#F5CF9F" BorderThickness="1">
                     <Grid>
@@ -147,5 +149,81 @@
                 </Border>
             </StackPanel>
         </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="Powers" Style="{StaticResource PillTab}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Text="HELPFUL POWERS (LABS)" Style="{StaticResource Heading}"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}" Margin="0,-4,0,8"
+                                   Text="Experiments that let the pet help on this PC. A power runs only when it's allowed here AND switched on in the phone's Powers screen. Off means it reads nothing. The first time a phone uses any command, this PC asks you."/>
+                        <StackPanel x:Name="PowerToggles"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Text="FAVOURITE APPS &amp; SITES (QUICK ACTIONS)" Style="{StaticResource Heading}"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}" Margin="0,-4,0,8"
+                                   Text="The phone can open these by name. It never sends a path or command itself. Websites (https://…), apps (.exe/.lnk) or folders."/>
+                        <StackPanel x:Name="FavoritesList"/>
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="FavLabel" MaxLength="30" Padding="6,5" BorderBrush="{StaticResource Line}" ToolTip="Name shown on the phone"/>
+                            <TextBox x:Name="FavTarget" Grid.Column="2" Padding="6,5" BorderBrush="{StaticResource Line}" ToolTip="https://… or a path to an app/shortcut/folder"/>
+                            <Button Grid.Column="3" Content="Browse…" Style="{StaticResource PillButton}" Margin="8,0,0,0" Click="FavBrowse_Click"/>
+                            <Button Grid.Column="4" Content="Add" Style="{StaticResource PillButton}" Margin="8,0,0,0" Click="FavAdd_Click"/>
+                        </Grid>
+                        <TextBlock x:Name="FavError" Foreground="{StaticResource Warn}" FontSize="12" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="APPROVED COMMANDS" Style="{StaticResource Heading}"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                <Button Content="Open inbox" Style="{StaticResource PillButton}" Padding="10,4" FontSize="12" Margin="0,0,8,0" Click="OpenInbox_Click"/>
+                                <Button Content="Reset approvals" Style="{StaticResource PillButton}" Padding="10,4" FontSize="12" Click="ResetApprovals_Click"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="ApprovedText" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="Labs scorecard" Style="{StaticResource PillTab}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="WHICH POWERS EARN THEIR PLACE?" Style="{StaticResource Heading}"/>
+                            <Button Content="Reset counts" Style="{StaticResource PillButton}" Padding="10,4" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Top" Click="ResetScores_Click"/>
+                        </Grid>
+                        <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}" Margin="0,-4,0,10"
+                                   Text="Counted on this PC only. Fired = the pet brought something up; Used = you tapped a command or answered 'done'; Dismissed = snoozed, skipped or closed."/>
+                        <Grid x:Name="ScoreGrid"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel>
+                        <TextBlock Text="COMMAND AUDIT LOG" Style="{StaticResource Heading}"/>
+                        <TextBlock x:Name="AuditText" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}" FontFamily="Cascadia Mono, Consolas" Text="No commands yet."/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+        </TabItem>
+        </TabControl>
     </Grid>
 </Window>
+

@@ -44,6 +44,8 @@ public sealed class ClientSession
     public double? PhoneLatencyMs { get; set; }
     public long CursorMessagesSent { get; private set; }
     public long CursorSamplesDropped { get; private set; }
+    /// <summary>Phone → PC commands currently running for this session.</summary>
+    public int CommandsInFlight;
 
     public ClientSession(WebSocket socket, IPAddress ip, string userAgent, Stopwatch clock)
     {

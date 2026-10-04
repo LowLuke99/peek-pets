@@ -26,6 +26,7 @@ public sealed class CompanionSettings
         ["load"] = false,
     };
     public List<PairedDevice> Devices { get; set; } = [];
+    public global::PeekPets.Companion.Powers.PowerPrefs Powers { get; set; } = new();
 
     [JsonIgnore] public string? FilePath { get; private set; }
 
@@ -34,6 +35,19 @@ public sealed class CompanionSettings
 
     public bool IsShared(string key) { lock (_gate) return Shared.TryGetValue(key, out var v) && v; }
     public void SetShared(string key, bool value) { lock (_gate) Shared[key] = value; Save(); }
+
+    /// <summary>Reads under the settings lock (other threads may be changing things).</summary>
+    public T Read<T>(Func<CompanionSettings, T> read) { lock (_gate) return read(this); }
+
+    /// <summary>Changes settings under the lock, then saves (unless <paramref name="save"/> is false).</summary>
+    public void Update(Action<CompanionSettings> change, bool save = true)
+    {
+        lock (_gate)
+        {
+            change(this);
+            if (save) Save();
+        }
+    }
 
     public static CompanionSettings Load(string? path = null)
     {

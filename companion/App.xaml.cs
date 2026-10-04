@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using PeekPets.Companion.Facts;
+using PeekPets.Companion.Powers;
 using PeekPets.Companion.Sensors;
 using PeekPets.Companion.Server;
 
@@ -23,9 +24,22 @@ public partial class App : Application
         var sampler = new CursorSampler(clock);
         var facts = new FactHub(settings.IsShared);
         LocalCertificates? certs = args.ContainsKey("no-https") ? null : new LocalCertificates(args.GetValueOrDefault("cert-dir"));
-        _server = new PetServer(settings, pairing, sampler, facts, clock, certs) { LoopbackOnly = args.ContainsKey("loopback") };
+        bool loopback = args.ContainsKey("loopback");
 
-        var window = new MainWindow(_server, pairing, settings, sampler);
+        // Test switches: --dry-run-actions records instead of acting; --auto-approve skips the
+        // first-use prompt; --test-hooks exposes /api/test/* (loopback only).
+        ISystemActions actions = args.ContainsKey("dry-run-actions") ? new DryRunActions() : new WindowsActions(Dispatcher);
+        var dataDir = Path.GetDirectoryName(settings.FilePath) ?? AppContext.BaseDirectory;
+        var approvals = new DeferredApproval();
+        var powers = new PowerHost(settings, PowerCatalog.Create(settings), actions, new OverridableIdle(new Win32Idle()),
+            args.ContainsKey("auto-approve") ? new AutoApprove() : approvals, new AuditLog(Path.Combine(dataDir, "audit.log")));
+        _server = new PetServer(settings, pairing, sampler, facts, clock, certs)
+        {
+            LoopbackOnly = loopback, Powers = powers, TestHooks = loopback && args.ContainsKey("test-hooks"),
+        };
+
+        var window = new MainWindow(_server, pairing, settings, sampler, powers);
+        approvals.Inner = new Ui.ApprovalPrompt(window);
         MainWindow = window;
         if (args.ContainsKey("minimized")) window.WindowState = WindowState.Minimized;
         window.Show();
@@ -50,6 +64,13 @@ public partial class App : Application
         // Run off the UI thread: blocking the dispatcher on async work that captured it deadlocks.
         if (_server is { } server) Task.Run(() => server.DisposeAsync().AsTask()).Wait(TimeSpan.FromSeconds(2));
         base.OnExit(e);
+    }
+
+    /// <summary>The approval dialog needs the main window, which needs the host: break the cycle.</summary>
+    private sealed class DeferredApproval : IApprovalPrompt
+    {
+        public IApprovalPrompt? Inner { get; set; }
+        public Task<bool> AskAsync(string d, string p, string c) => Inner?.AskAsync(d, p, c) ?? Task.FromResult(false);
     }
 
     private static Dictionary<string, string> ParseArgs(string[] args)
