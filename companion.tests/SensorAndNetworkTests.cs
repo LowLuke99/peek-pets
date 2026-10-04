@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using PeekPets.Companion.Sensors;
@@ -113,5 +113,18 @@ public sealed class WireFormatTests
         Assert.Equal("ABC-234", Pairing.Format("ABC234"));
         Assert.Equal("ABC234", Pairing.Normalize(" abc-234 "));
     }
-}
 
+    [Theory]
+    [InlineData("10.0.0.206", true)]
+    [InlineData("[fe80::1]", true)]
+    [InlineData("localhost", true)]
+    [InlineData("luke-pc.local", true)]
+    [InlineData("evil.example", false)]   // DNS rebinding: a public name pointed at a LAN address
+    [InlineData("10.0.0.206.nip.io", false)]
+    [InlineData("", false)]
+    public void Only_local_host_names_are_answered(string host, bool ok)
+    {
+        Assert.Equal(ok, PeekPets.Companion.Server.NetworkInfo.IsAllowedHost(host));
+        Assert.True(PeekPets.Companion.Server.NetworkInfo.IsAllowedHost(Environment.MachineName));
+    }
+}

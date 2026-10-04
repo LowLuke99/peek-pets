@@ -15,8 +15,12 @@ public sealed record ScoreRow(string Key, string Label, bool Allowed, bool On, i
 /// </summary>
 public sealed class PowerHost : IDisposable
 {
-    public const int SessionCommandsPerMinute = 60;
+    public const int DeviceCommandsPerMinute = 60;
+    public const int MaxOpenApprovals = 3;
     public static readonly TimeSpan ApprovalTimeout = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan DeniedCooldown = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan SensitiveApprovalLasts = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan LockWait = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ScoreSaveEvery = TimeSpan.FromSeconds(10);
 
     private readonly CompanionSettings _settings;
@@ -25,7 +29,11 @@ public sealed class PowerHost : IDisposable
     private readonly HashSet<string> _running = [];
     private readonly IApprovalPrompt _approvals;
     private readonly RateLimiter _limits;
-    private readonly ConcurrentDictionary<string, Task<bool>> _pendingApprovals = new();
+    private readonly ConcurrentDictionary<string, Lazy<Task<bool>>> _pendingApprovals = new();
+    private readonly ConcurrentDictionary<string, DateTime> _deniedUntil = new();
+    private readonly ConcurrentDictionary<string, DateTime> _shortApprovals = new();
+    private readonly SemaphoreSlim _reconcileGate = new(1, 1);
+    private int _ticks;
     private readonly Func<DateTime> _now;
     private readonly object _gate = new();
     private Timer? _timer;
@@ -38,6 +46,8 @@ public sealed class PowerHost : IDisposable
     public AuditLog Audit { get; }
     /// <summary>Sends a message to every authenticated phone (set by the server).</summary>
     public Action<object>? Broadcast { get; set; }
+    /// <summary>Is this device still paired? (set by the server; forgotten phones lose every approval).</summary>
+    public Func<string, bool>? DeviceExists { get; set; }
     public event Action? Changed;
     public event Action<string>? LogLine;
 
@@ -76,45 +86,59 @@ public sealed class PowerHost : IDisposable
         Reconcile();
     }
 
-    public void SetPhoneOn(string key, bool on)
+    public void SetPhoneOn(string key, bool on, string? who = null)
     {
-        if (!_powers.ContainsKey(key)) return;
+        if (!_powers.ContainsKey(key) || IsPhoneOn(key) == on) return; // unchanged: no disk write, no churn
         _settings.Update(s => s.Powers.PhoneOn[key] = on);
+        if (who is not null) Audit.Add(new AuditEntry(_now(), who, key, "switch", on ? "switched on" : "switched off"));
         Reconcile();
     }
 
-    /// <summary>Starts/stops powers so the running set matches what's enabled, then tells everyone.</summary>
+    /// <summary>
+    /// Starts/stops powers so the running set matches what's enabled, then tells everyone.
+    /// Never blocks for long: if a power is busy it is retried on the next safety pass.
+    /// </summary>
     private void Reconcile()
     {
+        if (!_reconcileGate.Wait(LockWait)) return;
         var changed = false;
-        foreach (var p in Powers)
+        try
         {
-            bool want = IsActive(p.Key);
-            bool running;
-            lock (_gate) running = _running.Contains(p.Key);
-            if (want == running) continue;
-            changed = true;
-            _locks[p.Key].Wait();
-            try
-            {
-                if (want)
-                {
-                    p.Start(new Context(this, p));
-                    lock (_gate) _running.Add(p.Key);
-                    Log($"Power on: {p.Label}");
-                }
-                else
-                {
-                    lock (_gate) _running.Remove(p.Key);
-                    p.Stop();
-                    Log($"Power off: {p.Label}");
-                }
-            }
-            catch (Exception ex) { Log($"{p.Label} failed to {(want ? "start" : "stop")}: {ex.Message}"); }
-            finally { _locks[p.Key].Release(); }
+            foreach (var p in Powers) changed |= ReconcileOne(p);
         }
+        finally { _reconcileGate.Release(); }
         if (changed) Broadcast?.Invoke(ListMessage());
         Changed?.Invoke();
+    }
+
+    private bool ReconcileOne(IPower p)
+    {
+        if (IsActive(p.Key) == Running(p.Key)) return false;
+        if (!_locks[p.Key].Wait(LockWait)) return false;
+        try
+        {
+            bool want = IsActive(p.Key); // re-read under the lock: the PC may have just blocked it
+            if (want == Running(p.Key)) return false;
+            if (want)
+            {
+                p.Start(new Context(this, p));
+                lock (_gate) _running.Add(p.Key);
+                Log($"Power on: {p.Label}");
+            }
+            else
+            {
+                lock (_gate) _running.Remove(p.Key);
+                p.Stop();
+                Log($"Power off: {p.Label}");
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log($"{p.Label} failed to start/stop: {ex.Message}");
+            return true;
+        }
+        finally { _locks[p.Key].Release(); }
     }
 
     private bool Running(string key) { lock (_gate) return _running.Contains(key); }
@@ -159,19 +183,29 @@ public sealed class PowerHost : IDisposable
     {
         powerKey ??= "";
         command ??= "";
+        // Per-device budget first, so even refused/unknown commands can't flood anything.
+        // Keyed by device (not connection): reconnecting doesn't refill the buckets.
+        if (!_limits.TryTake($"{caller.DeviceId}|*", DeviceCommandsPerMinute)) return Deny(caller, powerKey, command, "rate_limited");
+        if (DeviceExists?.Invoke(caller.DeviceId) == false) return Deny(caller, powerKey, command, "not_paired");
         if (!_powers.TryGetValue(powerKey, out var power) || power.Commands.FirstOrDefault(c => c.Name == command) is not { } spec)
             return Deny(caller, powerKey, command, "unknown_command");
         if (!IsAllowed(powerKey)) return Deny(caller, powerKey, command, "not_allowed");
         if (!IsPhoneOn(powerKey) || !Running(powerKey)) return Deny(caller, powerKey, command, "power_off");
-        if (!_limits.TryTake($"{caller.SessionId}|*", SessionCommandsPerMinute) ||
-            !_limits.TryTake($"{caller.SessionId}|{powerKey}.{command}", spec.PerMinute))
+        if (!_limits.TryTake($"{caller.DeviceId}|{powerKey}.{command}", spec.PerMinute))
             return Deny(caller, powerKey, command, "rate_limited");
 
-        if (!IsApproved(caller.DeviceId, powerKey, command))
+        if (!IsApproved(caller.DeviceId, powerKey, command, spec.Sensitive))
         {
+            var key = $"{caller.DeviceId}|{powerKey}.{command}";
+            if (_deniedUntil.TryGetValue(key, out var until) && _now() < until) return Deny(caller, powerKey, command, "denied");
+            if (_pendingApprovals.Count >= MaxOpenApprovals && !_pendingApprovals.ContainsKey(key)) return Deny(caller, powerKey, command, "busy");
             onPending?.Invoke();
             Audit.Add(new AuditEntry(_now(), caller.DeviceName, powerKey, command, "asked PC for approval"));
-            if (!await AskApprovalAsync(caller, power, spec)) return Deny(caller, powerKey, command, "denied");
+            if (!await AskApprovalAsync(caller, power, spec))
+            {
+                _deniedUntil[key] = _now() + DeniedCooldown; // no re-prompting for a while after "Don't allow"
+                return Deny(caller, powerKey, command, "denied");
+            }
             if (!Running(powerKey)) return Deny(caller, powerKey, command, "power_off"); // switched off while we waited
         }
 
@@ -201,17 +235,25 @@ public sealed class PowerHost : IDisposable
         return CommandResult.Fail(reason);
     }
 
-    private static string Short(string s) => s.Length <= 32 ? s : s[..32] + "…";
+    /// <summary>Phone-supplied names in the audit view: no control/bidi characters, bounded length.</summary>
+    private static string Short(string s)
+    {
+        var clean = new string(s.Where(c => !char.IsControl(c) && char.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.Format).ToArray());
+        return clean.Length <= 32 ? clean : clean[..32] + "…";
+    }
 
-    public bool IsApproved(string deviceId, string power, string command) =>
-        _settings.Read(s => s.Powers.Approved.TryGetValue(deviceId, out var list) && list.Contains($"{power}.{command}"));
+    public bool IsApproved(string deviceId, string power, string command, bool sensitive = false)
+    {
+        if (sensitive) return _shortApprovals.TryGetValue($"{deviceId}|{power}.{command}", out var until) && _now() < until;
+        return _settings.Read(s => s.Powers.Approved.TryGetValue(deviceId, out var list) && list.Contains($"{power}.{command}"));
+    }
 
     private async Task<bool> AskApprovalAsync(CommandCaller caller, IPower power, CommandSpec spec)
     {
         var key = $"{caller.DeviceId}|{power.Key}.{spec.Name}";
         // Two taps before the person answers share one dialog.
-        var task = _pendingApprovals.GetOrAdd(key, _ => AskOnceAsync(caller, power, spec));
-        try { return await task; }
+        var lazy = _pendingApprovals.GetOrAdd(key, _ => new Lazy<Task<bool>>(() => AskOnceAsync(caller, power, spec)));
+        try { return await lazy.Value; }
         finally { _pendingApprovals.TryRemove(key, out _); }
     }
 
@@ -220,11 +262,19 @@ public sealed class PowerHost : IDisposable
         bool ok;
         try
         {
-            var ask = _approvals.AskAsync(caller.DeviceName, power.Label, spec.Label);
+            var who = $"{caller.DeviceName} ({caller.DeviceId[..Math.Min(6, caller.DeviceId.Length)]})";
+            var ask = _approvals.AskAsync(who, power.Label, spec.Label);
             ok = await Task.WhenAny(ask, Task.Delay(ApprovalTimeout)) == ask && await ask;
         }
         catch (Exception) { ok = false; }
         if (!ok) return false;
+        if (DeviceExists?.Invoke(caller.DeviceId) == false) return false; // forgotten while the dialog was open
+        if (spec.Sensitive || !_approvals.Remember)
+        {
+            _shortApprovals[$"{caller.DeviceId}|{power.Key}.{spec.Name}"] = _now() + SensitiveApprovalLasts;
+            Audit.Add(new AuditEntry(_now(), caller.DeviceName, power.Key, spec.Name, "approved for 10 min"));
+            return true;
+        }
         _settings.Update(s =>
         {
             if (!s.Powers.Approved.TryGetValue(caller.DeviceId, out var list)) s.Powers.Approved[caller.DeviceId] = list = [];
@@ -249,6 +299,8 @@ public sealed class PowerHost : IDisposable
     public void ForgetDevice(string deviceId)
     {
         _settings.Update(s => s.Powers.Approved.Remove(deviceId));
+        foreach (var key in _shortApprovals.Keys.Where(k => k.StartsWith(deviceId + "|", StringComparison.Ordinal)).ToList())
+            _shortApprovals.TryRemove(key, out _);
         Changed?.Invoke();
     }
 
@@ -260,7 +312,7 @@ public sealed class PowerHost : IDisposable
         if (!Running(powerKey)) return;
         if (action is "dismiss" or "skip" or "snooze") Score(powerKey, s => s.Dismissed++);
         if (action == "done") Score(powerKey, s => { s.Used++; s.LastUsed = _now(); });
-        _locks[powerKey].Wait();
+        if (!_locks[powerKey].Wait(TimeSpan.FromSeconds(2))) return; // busy power: drop the ack rather than stall the socket
         try { p.OnAck(action, kind is { Length: <= 32 } ? kind : null); }
         finally { _locks[powerKey].Release(); }
         Broadcast?.Invoke(StateMessage(p));
@@ -293,6 +345,7 @@ public sealed class PowerHost : IDisposable
 
     public void Tick()
     {
+        if (++_ticks % 5 == 0) Reconcile(); // safety net: retries anything a busy power postponed
         foreach (var p in Powers)
         {
             if (!Running(p.Key) || !_locks[p.Key].Wait(0)) continue;

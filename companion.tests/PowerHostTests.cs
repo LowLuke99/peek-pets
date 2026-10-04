@@ -31,7 +31,7 @@ internal sealed class ProbePower : PowerBase
     public override string Key => "probe";
     public override string Label => "Probe";
     public override string Description => "test";
-    public override IReadOnlyList<CommandSpec> Commands { get; } = [new("poke", "Poke", 3), new("boom", "Boom", 10)];
+    public override IReadOnlyList<CommandSpec> Commands { get; } = [new("poke", "Poke", 3), new("boom", "Boom", 10), new("peek", "Peek", 30, Sensitive: true)];
     public override void Start(IPowerContext ctx) { base.Start(ctx); Starts++; }
     public override void Stop() => Stops++;
     public override void Tick() => Ticks++;
@@ -125,6 +125,7 @@ public sealed class PowerHostTests : IDisposable
         Assert.Equal("denied", (await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason);
         Assert.Equal(0, probe.Runs);
         approvals.Answer = true;
+        _now = _now.AddMinutes(6); // past the "don't ask again" cooldown
         Assert.True((await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Ok);
         Assert.Equal(2, approvals.Asked);
     }
@@ -226,6 +227,114 @@ public sealed class PowerHostTests : IDisposable
         Assert.Equal("inbox", Args.OneOf(a, "o", "clipboard", "inbox"));
         Assert.Null(Args.OneOf(a, "o", "clipboard"));
         Assert.Null(Args.Str(a, "bad", 10));
+    }
+
+    [Fact]
+    public async Task After_a_denial_the_phone_cannot_re_prompt_for_a_while()
+    {
+        var (host, _, approvals, _, _) = Make(approve: false);
+        host.SetPhoneOn("probe", true);
+        Assert.Equal("denied", (await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason);
+        _now = _now.AddSeconds(30);
+        Assert.Equal("denied", (await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason);
+        Assert.Equal(1, approvals.Asked); // no second dialog
+        _now = _now.AddMinutes(6);
+        approvals.Answer = true;
+        Assert.True((await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Ok);
+        Assert.Equal(2, approvals.Asked);
+    }
+
+    [Fact]
+    public async Task Sensitive_approvals_expire_and_are_never_saved()
+    {
+        var (host, _, approvals, _, settings) = Make();
+        host.SetPhoneOn("probe", true);
+        Assert.True((await host.RunCommandAsync(Phone, "probe", "peek", NoArgs)).Ok);
+        Assert.True((await host.RunCommandAsync(Phone, "probe", "peek", NoArgs)).Ok);
+        Assert.Equal(1, approvals.Asked);
+        Assert.DoesNotContain("probe.peek", File.ReadAllText(settings.FilePath!));
+        _now = _now.AddMinutes(11);
+        Assert.True((await host.RunCommandAsync(Phone, "probe", "peek", NoArgs)).Ok);
+        Assert.Equal(2, approvals.Asked);
+    }
+
+    [Fact]
+    public async Task Test_auto_approve_never_persists_approvals()
+    {
+        var settings = CompanionSettings.Load(Path.Combine(_dir, "auto.json"));
+        var host = new PowerHost(settings, [new ProbePower()], new DryRunActions(), new FakeIdle(), new AutoApprove(), new AuditLog(), () => _now);
+        host.SetPhoneOn("probe", true);
+        Assert.True((await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Ok);
+        Assert.False(host.IsApproved("dev1", "probe", "poke"));
+        Assert.DoesNotContain("probe.poke", File.ReadAllText(settings.FilePath!));
+    }
+
+    [Fact]
+    public async Task Forgotten_phones_are_refused_and_never_approved()
+    {
+        var (host, probe, approvals, _, _) = Make();
+        host.SetPhoneOn("probe", true);
+        host.DeviceExists = id => false;
+        Assert.Equal("not_paired", (await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason);
+        Assert.Equal(0, approvals.Asked);
+
+        // Forgotten while the approval dialog was open: the answer is thrown away.
+        bool paired = true;
+        host.DeviceExists = _ => paired;
+        approvals.Gate = new TaskCompletionSource<bool>();
+        var pending = host.RunCommandAsync(Phone, "probe", "poke", NoArgs);
+        await Task.Delay(30);
+        paired = false;
+        approvals.Gate.SetResult(true);
+        Assert.False((await pending).Ok);
+        Assert.False(host.IsApproved("dev1", "probe", "poke"));
+        Assert.Equal(0, probe.Runs);
+    }
+
+    [Fact]
+    public async Task Rate_limits_follow_the_device_across_reconnects_and_cover_unknown_commands()
+    {
+        var (host, _, _, _, _) = Make();
+        host.SetPhoneOn("probe", true);
+        for (int i = 0; i < 3; i++)
+            Assert.True((await host.RunCommandAsync(Phone with { SessionId = "conn" + i }, "probe", "poke", NoArgs)).Ok);
+        Assert.Equal("rate_limited", (await host.RunCommandAsync(Phone with { SessionId = "fresh" }, "probe", "poke", NoArgs)).Reason);
+
+        var spammer = new CommandCaller("dev9", "Spammer", "x");
+        var reasons = new List<string?>();
+        for (int i = 0; i < PowerHost.DeviceCommandsPerMinute + 5; i++) reasons.Add((await host.RunCommandAsync(spammer, "probe", "nope" + i, NoArgs)).Reason);
+        Assert.Contains("rate_limited", reasons);
+        Assert.True(host.Audit.Entries.Count < 80, "repeated refusals collapse instead of flooding the log");
+    }
+
+    [Fact]
+    public void Switching_is_audited_and_unchanged_switches_cost_nothing()
+    {
+        var (host, probe, _, sent, _) = Make();
+        host.SetPhoneOn("probe", true, "Test iPhone");
+        host.SetPhoneOn("probe", true, "Test iPhone");
+        host.SetPhoneOn("probe", true, "Test iPhone");
+        Assert.Equal(1, probe.Starts);
+        Assert.Single(host.Audit.Entries, e => e.Command == "switch");
+        Assert.Single(sent, m => JsonSerializer.Serialize(m).Contains("\"t\":\"powers\""));
+    }
+
+    [Fact]
+    public async Task Audit_view_strips_control_characters_from_phone_supplied_names()
+    {
+        var (host, _, _, _, _) = Make();
+        await host.RunCommandAsync(Phone, "probe\n12:00:00  iPhone → quick.lock: ok", "x", NoArgs);
+        Assert.DoesNotContain('\n', host.Audit.Entries[0].Power);
+    }
+
+    [Fact]
+    public void Audit_collapses_identical_repeats()
+    {
+        var log = new AuditLog();
+        for (int i = 0; i < 50; i++) log.Add(new AuditEntry(_now.AddSeconds(i), "d", "p", "c", "rate_limited"));
+        var entry = Assert.Single(log.Entries);
+        Assert.Equal(50, entry.Count);
+        Assert.Contains("×50", entry.ToString());
     }
 
     public void Dispose()

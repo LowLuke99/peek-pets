@@ -587,3 +587,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 
 body:has(.nudge:not([hidden])) .tray { opacity: 0; pointer-events: none; }
 .tray { transition: opacity 0.25s; }
+
+/* Lower render layers (GL clay bodies, back props) never take touches. */
+.stage--layer { pointer-events: none; }
+.lead--warn { color: #A0582C; }

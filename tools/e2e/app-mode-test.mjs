@@ -17,7 +17,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`); };
 
-const proc = spawn(EXE, ['--port', String(PORT), '--settings', join(OUT, 'c.json'), '--cert-dir', join(OUT, 'certs'), '--pair-code', 'TEST42', '--minimized'], { stdio: 'ignore' });
+const proc = spawn(EXE, ['--port', String(PORT), '--settings', join(OUT, 'c.json'), '--cert-dir', join(OUT, 'certs'), '--pair-code', 'TEST42', '--minimized'], { stdio: 'ignore', env: { ...process.env, PEEKPETS_TEST: '1' } });
 for (let i = 0; i < 60; i++) { try { if ((await fetch(`http://${HOST}:${PORT}/api/info`)).ok) break; } catch { /* starting */ } await sleep(200); }
 const info = await (await fetch(`http://${HOST}:${PORT}/api/info`)).json();
 check('companion advertises the secure port', info.securePort === PORT + 1, JSON.stringify(info));

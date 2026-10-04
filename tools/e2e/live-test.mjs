@@ -40,7 +40,7 @@ const round = (v) => (v == null ? null : Math.round(v * 10) / 10);
 // ---------------------------------------------------------------- companion
 let companion = null;
 async function startCompanion() {
-  companion = spawn(EXE, ['--port', String(PORT), '--settings', SETTINGS, '--pair-code', CODE, '--minimized'], { stdio: 'ignore' });
+  companion = spawn(EXE, ['--port', String(PORT), '--settings', SETTINGS, '--pair-code', CODE, '--minimized'], { stdio: 'ignore', env: { ...process.env, PEEKPETS_TEST: '1' } });
   const t0 = Date.now();
   while (Date.now() - t0 < 15000) {
     try { if ((await fetch(`${BASE}api/info`)).ok) return Date.now() - t0; } catch { /* not up yet */ }

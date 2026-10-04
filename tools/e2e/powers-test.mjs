@@ -64,7 +64,9 @@ try {
 
   await page.click('#power-focus >> text=25 min');
   await page.waitForFunction(() => window.peek.glue.cues.focusing);
-  check('focus session: pet gets desk + book and looks focused', await page.evaluate(() => window.peek.glue.cues.hand === 'book' && window.peek.emotion === 'focused'));
+  // (a real health alert from this PC's low C: drive can briefly make it look worried first)
+  const focused = await page.waitForFunction(() => window.peek.glue.cues.hand === 'book' && window.peek.emotion === 'focused', null, { timeout: 6000 }).then(() => true, () => false);
+  check('focus session: pet gets desk + book and looks focused', focused);
 
   await page.fill('#power-timers input.ptext', 'tea in 3 min');
   await page.press('#power-timers input.ptext', 'Enter');

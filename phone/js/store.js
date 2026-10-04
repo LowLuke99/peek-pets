@@ -38,6 +38,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   debug: false,
   demo: false,
   awake: false,
+  look: 'auto', // auto | clay (WebGL) | classic (2D)
 });
 
 export function loadSettings() {

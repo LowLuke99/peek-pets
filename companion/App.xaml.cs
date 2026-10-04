@@ -19,24 +19,30 @@ public partial class App : Application
         var settings = CompanionSettings.Load(args.GetValueOrDefault("settings"));
         if (args.TryGetValue("port", out var portText) && int.TryParse(portText, out var port)) settings.Port = port;
 
+        bool loopback = args.ContainsKey("loopback");
+        // Test switches only count in a loopback dry run, so they can never weaken a real,
+        // LAN-facing companion. A fixed pairing code on the LAN additionally needs PEEKPETS_TEST=1.
+        bool testMode = loopback && args.ContainsKey("dry-run-actions");
+        bool lanTest = Environment.GetEnvironmentVariable("PEEKPETS_TEST") == "1";
+        string? fixedCode = loopback || lanTest ? args.GetValueOrDefault("pair-code") : null;
+
         var clock = Stopwatch.StartNew();
-        var pairing = new Pairing(settings, fixedCode: args.GetValueOrDefault("pair-code"));
+        var pairing = new Pairing(settings, fixedCode: fixedCode);
         var sampler = new CursorSampler(clock);
         var facts = new FactHub(settings.IsShared);
         LocalCertificates? certs = args.ContainsKey("no-https") ? null : new LocalCertificates(args.GetValueOrDefault("cert-dir"));
-        bool loopback = args.ContainsKey("loopback");
 
         // Test switches: --dry-run-actions records instead of acting; --auto-approve skips the
         // first-use prompt; --test-hooks exposes /api/test/* (loopback only).
-        ISystemActions actions = args.ContainsKey("dry-run-actions") ? new DryRunActions() : new WindowsActions(Dispatcher);
+        ISystemActions actions = testMode ? new DryRunActions() : new WindowsActions(Dispatcher);
         var dataDir = Path.GetDirectoryName(settings.FilePath) ?? AppContext.BaseDirectory;
         var approvals = new DeferredApproval();
-        var inbox = args.TryGetValue("inbox", out var inboxDir) ? new InboxStore(inboxDir) : null; // tests keep photos out of the real inbox
+        var inbox = testMode && args.TryGetValue("inbox", out var inboxDir) ? new InboxStore(inboxDir) : null; // tests keep photos out of the real inbox
         var powers = new PowerHost(settings, PowerCatalog.Create(settings, inbox: inbox), actions, new OverridableIdle(new Win32Idle()),
-            args.ContainsKey("auto-approve") ? new AutoApprove() : approvals, new AuditLog(Path.Combine(dataDir, "audit.log")));
+            testMode && args.ContainsKey("auto-approve") ? new AutoApprove() : approvals, new AuditLog(Path.Combine(dataDir, "audit.log")));
         _server = new PetServer(settings, pairing, sampler, facts, clock, certs)
         {
-            LoopbackOnly = loopback, Powers = powers, TestHooks = loopback && args.ContainsKey("test-hooks"),
+            LoopbackOnly = loopback, Powers = powers, TestHooks = testMode && args.ContainsKey("test-hooks"),
         };
 
         var window = new MainWindow(_server, pairing, settings, sampler, powers);

@@ -74,7 +74,7 @@ public sealed class QuickPower(CompanionSettings settings) : PowerBase
     public override object? Snapshot() => new
     {
         micMuted = Ctx?.Actions.MicMuted(),
-        favorites = Favorites().Select(f => new { id = f.Id, label = f.Label }),
+        favorites = Favorites().Select(f => new { id = f.Id, label = f.Label }).ToList(),
     };
 }
 

@@ -75,10 +75,15 @@ public sealed class CompanionSettings
         if (FilePath is null) return;
         lock (_gate)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(this, Json));
-            File.Move(tmp, FilePath, overwrite: true);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+                var tmp = FilePath + ".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(this, Json));
+                File.Move(tmp, FilePath, overwrite: true);
+            }
+            catch (IOException) { /* disk full / locked: keep running on the in-memory copy */ }
+            catch (UnauthorizedAccessException) { }
         }
     }
 }

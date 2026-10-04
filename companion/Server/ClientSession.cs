@@ -46,6 +46,8 @@ public sealed class ClientSession
     public long CursorSamplesDropped { get; private set; }
     /// <summary>Phone → PC commands currently running for this session.</summary>
     public int CommandsInFlight;
+    /// <summary>Messages dropped for exceeding the per-connection budget.</summary>
+    public int DroppedMessages;
 
     public ClientSession(WebSocket socket, IPAddress ip, string userAgent, Stopwatch clock)
     {

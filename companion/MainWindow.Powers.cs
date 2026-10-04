@@ -28,8 +28,9 @@ public partial class MainWindow
             text.Children.Add(new TextBlock { Text = p.Description, FontSize = 12, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("Muted") });
             box.Content = text;
             var key = p.Key;
-            box.Checked += (_, _) => _powers.SetPcAllowed(key, true);
-            box.Unchecked += (_, _) => _powers.SetPcAllowed(key, false);
+            // Off the UI thread: a busy power must never freeze this window.
+            box.Checked += (_, _) => Task.Run(() => _powers.SetPcAllowed(key, true));
+            box.Unchecked += (_, _) => Task.Run(() => _powers.SetPcAllowed(key, false));
             PowerToggles.Children.Add(box);
             _powerRows[key] = (box, status);
         }

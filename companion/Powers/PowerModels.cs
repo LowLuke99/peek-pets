@@ -7,7 +7,8 @@ namespace PeekPets.Companion.Powers;
 /// phone can only name one of these, never send code or paths. Every command needs the
 /// power's PC-side permission, a one-time approval per phone, and passes a rate limit.
 /// </summary>
-public sealed record CommandSpec(string Name, string Label, int PerMinute = 20);
+/// <param name="Sensitive">Approval lasts only a few minutes and is never saved (e.g. reading the clipboard).</param>
+public sealed record CommandSpec(string Name, string Label, int PerMinute = 20, bool Sensitive = false);
 
 public sealed record CommandResult(bool Ok, string? Reason = null, object? Data = null)
 {

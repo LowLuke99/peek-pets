@@ -195,14 +195,14 @@ public sealed class HealthPower(IHealthProbe? probe = null) : PowerBase
         return new
         {
             ready = true,
-            drives = r.Drives.Select(d => new { name = d.Name.TrimEnd('\\'), label = d.Label, freeGb = d.FreeGb, totalGb = d.TotalGb, freePct = Math.Round(d.FreePct), level = HealthRules.DiskLevel(d) }),
+            drives = r.Drives.Select(d => new { name = d.Name.TrimEnd('\\'), label = d.Label, freeGb = d.FreeGb, totalGb = d.TotalGb, freePct = Math.Round(d.FreePct), level = HealthRules.DiskLevel(d) }).ToList(),
             memory = r.MemoryPct,
             cpu = r.CpuPct,
             tempC = r.TempC,
             throttled = r.Throttled,
             hog = _hog,
             fill = rate is { } f ? new { drive = system!.Name.TrimEnd('\\'), gbPerDay = f.GbPerDay, daysLeft = f.DaysLeft } : null,
-            alerts = _rules.Current.Select(AlertData),
+            alerts = _rules.Current.Select(AlertData).ToList(),
             hints = _hints,
         };
     }

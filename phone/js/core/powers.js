@@ -150,7 +150,7 @@ export function nudgeCard(key, ev, data) {
   }
   if (key === 'health' && ev === 'alert') {
     const actions = (Array.isArray(d.actions) ? d.actions : [])
-      .filter((a) => HEALTH_ACTIONS[a]).slice(0, 3)
+      .filter((a) => typeof a === 'string' && Object.hasOwn(HEALTH_ACTIONS, a)).slice(0, 3)
       .map((a) => ({ label: HEALTH_ACTIONS[a], cmd: { power: 'health', name: a } }));
     return { id: `health:${d.kind}`, key, kind: d.kind, title: d.title ?? 'PC health', body: d.detail ?? '', ttlMs: 10 * 60_000, actions: [...actions, { label: 'Later', ack: 'dismiss' }] };
   }

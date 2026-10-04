@@ -142,7 +142,12 @@ export const PANELS = {
           btn('To PC clipboard', send('clipboard'), { 'data-main': '' }),
           btn('Save to inbox', send('inbox')),
           btn('Send a photo', () => file.click()), file,
-          btn('Grab PC clipboard', async () => { const r = await ctx.run('handoff', 'grab_clipboard', {}, 'Read the PC clipboard (text)'); if (r.ok) { ctx.memo.grabbed = r.data.text; ctx.rerender(); } })),
+          btn('Grab PC clipboard', async () => { const r = await ctx.run('handoff', 'grab_clipboard', {}, 'Read the PC clipboard (text)'); if (r.ok) {
+            ctx.memo.grabbed = r.data.text;
+            ctx.rerender();
+            clearTimeout(ctx.memo.forget);
+            ctx.memo.forget = setTimeout(() => { ctx.memo.grabbed = null; ctx.rerender(); }, 60_000); // don't keep PC secrets around
+          } })),
         grabbed ? h('div', { class: 'grabbed' },
           h('textarea', { class: 'ptext', rows: '3', readonly: true, 'aria-label': 'Text from the PC clipboard', value: grabbed }),
           btn('Copy on phone', async (e) => {

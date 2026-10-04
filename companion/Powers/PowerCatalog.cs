@@ -34,12 +34,14 @@ internal static class TestRoutes
         app.MapGet("/api/test/audit", () => Results.Json(host.Audit.Entries.Select(e => new { e.Power, e.Command, e.Outcome })));
         app.MapPost("/api/test/emit", async (HttpContext ctx) =>
         {
+            if (!PetServer.SameOrigin(ctx)) return Results.StatusCode(403);
             string key = ctx.Request.Query["key"].ToString(), ev = ctx.Request.Query["ev"].ToString();
             var data = await JsonSerializer.DeserializeAsync<JsonElement>(ctx.Request.Body);
             return host.TestEmit(key, ev, data) ? Results.Ok() : Results.NotFound();
         });
         app.MapPost("/api/test/idle", (HttpContext ctx) =>
         {
+            if (!PetServer.SameOrigin(ctx)) return Results.StatusCode(403);
             if (host.Idle is not OverridableIdle idle) return Results.NotFound();
             idle.Override = double.TryParse(ctx.Request.Query["sec"], out var sec) ? TimeSpan.FromSeconds(sec) : null;
             return Results.Ok();

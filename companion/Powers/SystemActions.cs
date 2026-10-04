@@ -42,11 +42,14 @@ public interface IIdleSource
 public interface IApprovalPrompt
 {
     Task<bool> AskAsync(string deviceName, string powerLabel, string commandLabel);
+    /// <summary>False = approvals from this prompt are never saved (test auto-approve).</summary>
+    bool Remember => true;
 }
 
 public sealed class AutoApprove : IApprovalPrompt
 {
     public Task<bool> AskAsync(string deviceName, string powerLabel, string commandLabel) => Task.FromResult(true);
+    public bool Remember => false;
 }
 
 public sealed class Win32Idle : IIdleSource

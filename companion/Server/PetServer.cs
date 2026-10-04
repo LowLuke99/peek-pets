@@ -23,7 +23,10 @@ public sealed class PetServer : IAsyncDisposable
 {
     public const int ProtocolVersion = 1;
     public const int MaxSessions = 8;
-    private const int MaxMessageBytes = 16 * 1024;
+    private const int MaxMessageBytes = 24 * 1024; // 4000 non-ASCII characters of handoff text fit
+    private const int MessagesPerMinute = 900;     // ~15/s: far above pings + stats + taps
+    private const int MaxDroppedMessages = 200;
+    private static readonly TimeSpan UploadDeadline = TimeSpan.FromSeconds(30);
     private const int MaxCommandsInFlight = 8;
     private const int MaxUnauthedPerIp = 2;
     private static readonly TimeSpan AuthTimeout = TimeSpan.FromSeconds(10);
@@ -38,6 +41,7 @@ public sealed class PetServer : IAsyncDisposable
     private readonly List<ClientSession> _sessions = [];
     private readonly object _gate = new();
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly RateLimiter _messageLimits = new(() => DateTime.UtcNow);
     private WebApplication? _app;
 
     public string PhoneRoot { get; }
@@ -79,6 +83,7 @@ public sealed class PetServer : IAsyncDisposable
     {
         if (Powers is null) return;
         Powers.Broadcast = Broadcast;
+        Powers.DeviceExists = id => _pairing.Devices.Any(d => d.Id == id);
         Powers.Start();
     }
 
@@ -109,8 +114,9 @@ public sealed class PetServer : IAsyncDisposable
 
         app.Use(async (ctx, next) =>
         {
-            if (!NetworkInfo.IsLocalNetwork(ctx.Connection.RemoteIpAddress))
+            if (!NetworkInfo.IsLocalNetwork(ctx.Connection.RemoteIpAddress) || !NetworkInfo.IsAllowedHost(ctx.Request.Host.Host))
             {
+                // Unknown Host names are refused too: a DNS-rebinding page can fake the origin, not the Host check.
                 ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
                 return;
             }
@@ -220,6 +226,7 @@ public sealed class PetServer : IAsyncDisposable
     {
         string type = Str(m, "t") ?? "";
         if (!s.IsAuthed && type is not ("auth" or "ping")) { s.Enqueue(new { t = "auth_err", reason = "not_authed" }); return; }
+        if (s.IsAuthed && !AllowMessage(s, type)) return;
 
         switch (type)
         {
@@ -248,7 +255,7 @@ public sealed class PetServer : IAsyncDisposable
                 break;
             case "power_set":
                 if (Powers is not null && Str(m, "key") is { Length: <= 32 } key && m.TryGetProperty("on", out var on) && on.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                    Powers.SetPhoneOn(key, on.GetBoolean());
+                    Powers.SetPhoneOn(key, on.GetBoolean(), s.DisplayName);
                 break;
             case "power_ack":
                 Powers?.Ack(Str(m, "key"), Str(m, "action"), Str(m, "kind"));
@@ -260,12 +267,38 @@ public sealed class PetServer : IAsyncDisposable
     }
 
     /// <summary>
+    /// Per-connection message budget (and tighter ones for power switches/acks), so a paired
+    /// phone can't flood the companion. A connection that keeps exceeding it is closed.
+    /// </summary>
+    private bool AllowMessage(ClientSession s, string type)
+    {
+        bool ok = type == "ping" || _messageLimits.TryTake($"{s.Id}|all", MessagesPerMinute);
+        if (ok && type == "power_set") ok = _messageLimits.TryTake($"{s.Device!.Id}|power_set", 30);
+        if (ok && type == "power_ack") ok = _messageLimits.TryTake($"{s.Device!.Id}|power_ack", 60);
+        if (ok) return true;
+        if (Interlocked.Increment(ref s.DroppedMessages) > MaxDroppedMessages) _ = s.CloseAsync("flood");
+        return false;
+    }
+
+    /// <summary>Forget a phone everywhere at once: every open connection loses its identity and is closed.</summary>
+    public void RevokeDevice(string deviceId)
+    {
+        foreach (var s in Sessions.Where(x => x.Device?.Id == deviceId))
+        {
+            s.Device = null;
+            _ = s.CloseAsync("forgotten");
+        }
+        Powers?.ForgetDevice(deviceId);
+        SessionsChanged?.Invoke();
+    }
+
+    /// <summary>
     /// Runs a phone → PC command in the background: it may wait up to a minute for approval
     /// on the PC, and the receive loop must keep answering pings meanwhile.
     /// </summary>
     private void StartCommand(ClientSession s, JsonElement m)
     {
-        if (Powers is null || s.Device is not { } device) return;
+        if (Powers is null || s.Device is not { } device || !_pairing.Devices.Any(d => d.Id == device.Id)) return;
         if (Num(m, "id") is not double idNum || idNum < 0 || idNum > int.MaxValue) return;
         int id = (int)idNum;
         if (Interlocked.Increment(ref s.CommandsInFlight) > MaxCommandsInFlight)
@@ -304,10 +337,19 @@ public sealed class PetServer : IAsyncDisposable
         var who = _pairing.AuthWithToken(token, ip);
         if (!who.Ok || who.Device is null) { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return; }
         if (ctx.Request.ContentLength > InboxStore.MaxImageBytes) { ctx.Response.StatusCode = StatusCodes.Status413PayloadTooLarge; return; }
+        // Read the whole body first, with a deadline, so a slow sender never holds the power's lock.
+        byte[]? body;
+        using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted))
+        {
+            deadline.CancelAfter(UploadDeadline);
+            try { body = await InboxStore.ReadLimitedAsync(ctx.Request.Body, InboxStore.MaxImageBytes, deadline.Token); }
+            catch (OperationCanceledException) { ctx.Response.StatusCode = StatusCodes.Status408RequestTimeout; return; }
+        }
+        if (body is null) { ctx.Response.StatusCode = StatusCodes.Status413PayloadTooLarge; return; }
         var caller = new CommandCaller(who.Device.Id, who.Device.Name, "upload:" + ip);
         var result = await Powers!.RunCommandAsync(caller, "handoff", "send_photo", default,
-            invoke: p => ((HandoffPower)p).ReceivePhotoAsync(ctx.Request.Body, caller, ctx.RequestAborted));
-        ctx.Response.StatusCode = result.Ok ? 200 : result.Reason == "not_an_image" ? 415 : 403;
+            invoke: p => ((HandoffPower)p).ReceivePhotoAsync(body, caller));
+        ctx.Response.StatusCode = result.Ok ? 200 : result.Reason == "not_an_image" ? 415 : result.Reason is "inbox_full" or "disk_full" ? 507 : 403;
         await ctx.Response.WriteAsJsonAsync(new { ok = result.Ok, reason = result.Reason, data = result.Data });
     }
 

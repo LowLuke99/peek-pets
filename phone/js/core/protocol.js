@@ -59,9 +59,9 @@ export function parseServerMessage(text) {
     case 'powers':
       return Array.isArray(m.list) ? { t: 'powers', list: m.list.slice(0, 24).map(parsePowerEntry).filter(Boolean) } : null;
     case 'power':
-      return str(m.key, 32) && str(m.ev, 32) ? { t: 'power', key: m.key, ev: m.ev, data: obj(m.data) } : null;
+      return ident(m.key) && ident(m.ev) ? { t: 'power', key: m.key, ev: m.ev, data: obj(m.data) } : null;
     case 'power_state':
-      return str(m.key, 32) ? { t: 'power_state', key: m.key, state: obj(m.state) } : null;
+      return ident(m.key) ? { t: 'power_state', key: m.key, state: obj(m.state) } : null;
     case 'cmd_result':
       return finite(m.id) ? { t: 'cmd_result', id: m.id, ok: m.ok === true, reason: str(m.reason, 40) ? m.reason : null, data: obj(m.data) } : null;
     case 'cmd_pending':
@@ -72,9 +72,11 @@ export function parseServerMessage(text) {
 }
 
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : null);
+// Power keys/events become object keys on the phone: plain identifiers only (no "__proto__").
+const ident = (v) => typeof v === 'string' && /^[a-z][a-z0-9_]{0,31}$/.test(v);
 
 function parsePowerEntry(p) {
-  if (!p || !str(p.key, 32) || !str(p.label, 80)) return null;
+  if (!p || !ident(p.key) || !str(p.label, 80)) return null;
   return {
     key: p.key,
     label: p.label,

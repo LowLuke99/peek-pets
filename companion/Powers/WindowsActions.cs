@@ -68,6 +68,10 @@ public sealed class WindowsActions(Dispatcher ui) : ISystemActions
 
     public void LockPc() => LockWorkStation();
 
+    private static readonly TimeSpan UiTimeout = TimeSpan.FromSeconds(3);
+    private static string System32(string exe) => Path.Combine(Environment.SystemDirectory, exe);
+    private static string Explorer => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+
     public void FindCursor() => ui.BeginInvoke(() => new Ui.CursorRing().Show());
 
     public void Open(OpenTarget target, string? selectPath = null)
@@ -75,11 +79,11 @@ public sealed class WindowsActions(Dispatcher ui) : ISystemActions
         switch (target)
         {
             case OpenTarget.StorageSettings: Shell("ms-settings:storagesense"); break;
-            case OpenTarget.TaskManager: Shell("taskmgr.exe"); break;
-            case OpenTarget.DiskCleanup: Shell("cleanmgr.exe"); break;
-            case OpenTarget.DownloadsFolder: if (WatchPower.DownloadsFolder() is { } d) Shell("explorer.exe", $"\"{d}\""); break;
-            case OpenTarget.TempFolder: Shell("explorer.exe", $"\"{Path.GetTempPath()}\""); break;
-            case OpenTarget.InboxFolder: if (selectPath is not null) Shell("explorer.exe", $"\"{selectPath}\""); break;
+            case OpenTarget.TaskManager: Shell(System32("taskmgr.exe")); break;
+            case OpenTarget.DiskCleanup: Shell(System32("cleanmgr.exe")); break;
+            case OpenTarget.DownloadsFolder: if (WatchPower.DownloadsFolder() is { } d) Shell(Explorer, $"\"{d}\""); break;
+            case OpenTarget.TempFolder: Shell(Explorer, $"\"{Path.GetTempPath()}\""); break;
+            case OpenTarget.InboxFolder: if (selectPath is not null) Shell(Explorer, $"\"{selectPath}\""); break;
         }
     }
 
@@ -99,20 +103,28 @@ public sealed class WindowsActions(Dispatcher ui) : ISystemActions
         catch (Exception) { return false; }
     }
 
+    // Clipboard calls run on the UI thread with a timeout, so a busy UI can never deadlock a command.
     public void SetClipboardText(string text) => ui.Invoke(() =>
     {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 3; i++)
         {
             try { System.Windows.Clipboard.SetText(text); return; }
-            catch (COMException) { Thread.Sleep(40); } // another app has the clipboard open
+            catch (COMException) { Thread.Sleep(30); } // another app has the clipboard open
         }
-    });
+    }, System.Windows.Threading.DispatcherPriority.Normal, CancellationToken.None, UiTimeout);
 
     public string? GetClipboardText() => ui.Invoke(() =>
     {
-        try { return System.Windows.Clipboard.ContainsText() ? System.Windows.Clipboard.GetText() : null; }
+        try
+        {
+            if (!System.Windows.Clipboard.ContainsText()) return null;
+            // Password managers mark secrets as private: never hand those to a phone.
+            if (System.Windows.Clipboard.ContainsData("ExcludeClipboardContentFromMonitorProcessing") ||
+                System.Windows.Clipboard.ContainsData("Clipboard Viewer Ignore")) return null;
+            return System.Windows.Clipboard.GetText();
+        }
         catch (COMException) { return null; }
-    });
+    }, System.Windows.Threading.DispatcherPriority.Normal, CancellationToken.None, UiTimeout);
 
     public void Toast(string title, string body, string? openPath = null) =>
         ui.BeginInvoke(() => Ui.ToastWindow.Show(title, body, openPath));

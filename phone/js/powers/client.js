@@ -117,7 +117,7 @@ export class PowersClient {
 
 /** Friendly text for a command failure. */
 export function reasonText(reason) {
-  return {
+  const text = {
     offline: 'Connect to your PC first.',
     timeout: 'The PC didn\'t answer in time.',
     denied: 'Not allowed on the PC.',
@@ -135,5 +135,9 @@ export function reasonText(reason) {
     not_an_image: 'That file isn\'t a photo.',
     busy: 'The PC is busy, try again.',
     network: 'Couldn\'t reach the PC.',
-  }[reason] ?? 'That didn\'t work.';
+    not_paired: 'This phone isn\'t paired any more.',
+    inbox_full: 'The PC inbox is full: tidy it up first.',
+    disk_full: 'The PC is too low on disk space for that.',
+  };
+  return Object.hasOwn(text, reason ?? '') ? text[reason] : 'That didn\'t work.';
 }

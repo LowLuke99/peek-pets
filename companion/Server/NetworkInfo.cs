@@ -53,6 +53,20 @@ public static class NetworkInfo
     /// Requests are only served to loopback and private/link-local ranges so the
     /// cursor stream never leaves the local network even if a port gets forwarded.
     /// </summary>
+    /// <summary>
+    /// Host header names we answer to: IP literals, localhost, this PC's name, *.local.
+    /// Anything else (e.g. evil.example rebinding to a LAN address) is refused.
+    /// </summary>
+    public static bool IsAllowedHost(string? host)
+    {
+        if (string.IsNullOrEmpty(host)) return false;
+        var h = host.Trim('[', ']');
+        if (IPAddress.TryParse(h, out _)) return true;
+        return h.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || h.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase)
+            || h.EndsWith(".local", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static bool IsLocalNetwork(IPAddress? ip)
     {
         if (ip is null) return false;

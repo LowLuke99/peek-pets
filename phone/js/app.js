@@ -33,7 +33,7 @@ const IMPORTANT_BUBBLES = new Set(['connect', 'disconnect', 'pc-closed', 'levelu
 export class App {
   constructor() {
     this.settings = loadSettings();
-    this.renderer = new Renderer($('#stage'));
+    this.renderer = new Renderer($('#stage'), { glCanvas: $('#glStage'), backCanvas: $('#stageBack') });
     this.rig = new PetRig();
     this.particles = new Particles();
     this.ball = new Ball();
@@ -529,6 +529,7 @@ export class App {
       `cursor   ${Math.round(l.cursorRate)}/s  ~${fmt(l.latency)} ms`,
       `last     ${c ? `${c.x.toFixed(3)}, ${c.y.toFixed(3)}` : '–'}`,
       `fps      ${Math.round(this.fps)}  dpr ${this.renderer.dpr.toFixed(1)}`,
+      `look     ${this.look}${this.look === 'clay' ? ` · ${this.renderer.partsDrawn} parts` : ''}`,
       `mood     ${this.emotion}`,
       `gaze     ${g.x.toFixed(2)}, ${g.y.toFixed(2)}`,
       `awake    ${this.settings.awake ? this.awake.method : 'off'}`,
@@ -566,6 +567,7 @@ export class App {
 
   applySettings() {
     this.sfx.enabled = this.settings.sound;
+    this.look = this.renderer.setLook(this.settings.look);
     document.documentElement.classList.toggle('reduced-motion', this.settings.reducedMotion);
     if (!this.settings.debug) this.ui.setHud(null);
     this.refreshStatus();

@@ -30,7 +30,7 @@ export function powersSheet({ glue, focus }) {
   } });
 
   function renderCard(key) {
-    const panel = PANELS[key];
+    const panel = Object.hasOwn(PANELS, key) ? PANELS[key] : null;
     const entry = glue.client.entry(key);
     if (!panel) return null;
     const status = availability(entry, connected());
@@ -77,6 +77,7 @@ export function powersSheet({ glue, focus }) {
   const el = h('div', {},
     h('p', { class: 'lead', text: 'Labs: little ways your pet can help on the PC. Try them all, keep what helps. Your PC\'s Labs scorecard counts which ones earn their place.' }),
     connected() ? h('div', { class: 'btn-row btn-row--end' }, allOn) : h('p', { class: 'error', text: 'Connect to your PC to use powers.' }),
+    location.protocol === 'http:' && !window.Capacitor ? h('p', { class: 'lead lead--small lead--warn', text: 'Quick mode isn\'t encrypted: anyone snooping on this Wi-Fi could see what powers send (like clipboard text). The installed app encrypts everything.' }) : null,
     list,
     h('p', { class: 'lead lead--small', text: 'Powers only read what they need (never your screen or keystrokes). The first time you use a command, your PC asks you to allow it.' }));
   return { el, dispose: () => { unsubscribe(); clearInterval(ticker); } };

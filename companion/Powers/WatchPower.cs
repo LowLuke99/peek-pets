@@ -90,7 +90,7 @@ public sealed class WatchPower : PowerBase
         {
             case "processes":
                 var list = await ProcessSampler.SampleAsync(TimeSpan.FromMilliseconds(1200));
-                return CommandResult.Success(new { processes = list.Select(p => new { pid = p.Pid, name = p.Name, cpu = p.Cpu, memMb = p.MemoryMb }) });
+                return CommandResult.Success(new { processes = list.Select(p => new { pid = p.Pid, name = p.Name, cpu = p.Cpu, memMb = p.MemoryMb }).ToList() });
             case "watch":
                 if (Args.Int(args, "pid", 1, int.MaxValue) is not { } pid) return CommandResult.Fail("bad_args");
                 return AddProcess(pid);
@@ -217,7 +217,7 @@ public sealed class WatchPower : PowerBase
             partials = w.Kind == "downloads" ? (int)w.Cpu : (int?)null,
             busy = w.Quiet?.WasBusy ?? false,
             sinceSec = (int)(Now - w.Started).TotalSeconds,
-        }),
+        }).ToList(),
     };
 
     private static string Pretty(string processName) =>

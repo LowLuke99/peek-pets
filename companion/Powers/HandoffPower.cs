@@ -12,6 +12,9 @@ public sealed class InboxStore(string folder, Func<DateTime>? now = null)
 {
     public const long MaxImageBytes = 15 * 1024 * 1024;
     public const int MaxTextChars = 4000;
+    public const long MaxInboxBytes = 500L * 1024 * 1024;
+    public const int MaxInboxFiles = 300;
+    public const long MinFreeDiskBytes = 2L * 1024 * 1024 * 1024;
     private readonly Func<DateTime> _now = now ?? (() => DateTime.Now);
 
     public string Folder { get; } = folder;
@@ -31,22 +34,52 @@ public sealed class InboxStore(string folder, Func<DateTime>? now = null)
         return null;
     }
 
-    public async Task<string?> SaveImageAsync(Stream body, CancellationToken ct = default)
+    /// <summary>Reads a stream fully, or returns null past <paramref name="max"/> bytes.</summary>
+    public static async Task<byte[]?> ReadLimitedAsync(Stream body, long max, CancellationToken ct = default)
     {
         using var buffer = new MemoryStream();
         var chunk = new byte[81920];
         int read;
         while ((read = await body.ReadAsync(chunk, ct)) > 0)
         {
-            if (buffer.Length + read > MaxImageBytes) return null;
+            if (buffer.Length + read > max) return null;
             buffer.Write(chunk, 0, read);
         }
-        var bytes = buffer.ToArray();
+        return buffer.ToArray();
+    }
+
+    public async Task<string?> SaveImageAsync(Stream body, CancellationToken ct = default)
+    {
+        var bytes = await ReadLimitedAsync(body, MaxImageBytes, ct);
+        return bytes is null ? null : await SaveImageAsync(bytes, ct);
+    }
+
+    public async Task<string?> SaveImageAsync(byte[] bytes, CancellationToken ct = default)
+    {
+        if (bytes.Length > MaxImageBytes) return null;
         var ext = SniffImage(bytes.AsSpan(0, Math.Min(bytes.Length, 32)));
         if (ext is null) return null;
         var path = UniquePath("Photo", ext);
         await File.WriteAllBytesAsync(path, bytes, ct);
         return path;
+    }
+
+    /// <summary>Null if there's room for <paramref name="incoming"/> more bytes; otherwise why not.</summary>
+    public string? CheckRoom(long incoming)
+    {
+        try
+        {
+            if (Directory.Exists(Folder))
+            {
+                var files = new DirectoryInfo(Folder).GetFiles();
+                if (files.Length >= MaxInboxFiles || files.Sum(f => f.Length) + incoming > MaxInboxBytes) return "inbox_full";
+            }
+            var root = Path.GetPathRoot(Path.GetFullPath(Folder));
+            if (root is not null && new DriveInfo(root).AvailableFreeSpace - incoming < MinFreeDiskBytes) return "disk_full";
+        }
+        catch (IOException) { return "disk_full"; }
+        catch (UnauthorizedAccessException) { return "disk_full"; }
+        return null;
     }
 
     public string SaveText(string text)
@@ -83,7 +116,7 @@ public sealed class HandoffPower(InboxStore? inbox = null) : PowerBase
     [
         new("send_text", "Send text to this PC", 20),
         new("send_photo", "Send a photo to the inbox", 12),
-        new("grab_clipboard", "Read the PC clipboard (text)", 10),
+        new("grab_clipboard", "Read the PC clipboard (text)", 10, Sensitive: true),
         new("open_inbox", "Open the inbox folder", 6),
     ];
 
@@ -100,10 +133,11 @@ public sealed class HandoffPower(InboxStore? inbox = null) : PowerBase
                 if (to == "clipboard")
                 {
                     Ctx.Actions.SetClipboardText(text);
-                    Ctx.Actions.Toast($"📋 From {caller.DeviceName}", Preview(text) + "  (copied, press Ctrl+V)");
+                    Ctx.Actions.Toast($"📋 From {caller.DeviceName}", $"{Preview(text)}  ({Shape(text)}, copied: Ctrl+V)");
                 }
                 else
                 {
+                    if (_inbox.CheckRoom(text.Length * 3) is { } why) return Task.FromResult(CommandResult.Fail(why));
                     var path = _inbox.SaveText(text);
                     Ctx.Actions.Toast($"📥 Note from {caller.DeviceName}", Preview(text), path);
                 }
@@ -114,8 +148,9 @@ public sealed class HandoffPower(InboxStore? inbox = null) : PowerBase
             }
             case "grab_clipboard":
             {
-                var text = Ctx.Actions.GetClipboardText();
+                var text = Ctx.Actions.GetClipboardText(); // null when empty or marked private (password managers)
                 if (string.IsNullOrEmpty(text)) return Task.FromResult(CommandResult.Fail("empty"));
+                Ctx.Actions.Toast($"📋 {caller.DeviceName} read your clipboard", $"{Shape(text)} sent to the phone.");
                 return Task.FromResult(CommandResult.Success(new { text = text.Length > InboxStore.MaxTextChars ? text[..InboxStore.MaxTextChars] : text }));
             }
             case "open_inbox":
@@ -128,11 +163,12 @@ public sealed class HandoffPower(InboxStore? inbox = null) : PowerBase
         return Task.FromResult(CommandResult.Fail("unknown_command"));
     }
 
-    /// <summary>Called by the server for an authenticated, approved upload.</summary>
-    public async Task<CommandResult> ReceivePhotoAsync(Stream body, CommandCaller caller, CancellationToken ct)
+    /// <summary>Called by the server for an authenticated, approved upload (body already read).</summary>
+    public async Task<CommandResult> ReceivePhotoAsync(byte[] body, CommandCaller caller)
     {
         if (Ctx is null) return CommandResult.Fail("power_off");
-        var path = await _inbox.SaveImageAsync(body, ct);
+        if (_inbox.CheckRoom(body.Length) is { } why) return CommandResult.Fail(why);
+        var path = await _inbox.SaveImageAsync(body);
         if (path is null) return CommandResult.Fail("not_an_image");
         _received++;
         Ctx.Actions.Toast($"🖼️ Photo from {caller.DeviceName}", "Saved to Peek Pets Inbox. Click to show it.", path);
@@ -142,6 +178,13 @@ public sealed class HandoffPower(InboxStore? inbox = null) : PowerBase
     }
 
     public override object? Snapshot() => new { received = _received, inbox = "Peek Pets Inbox" };
+
+    /// <summary>"3 lines, 120 characters": so a hidden second line in pasted text is visible.</summary>
+    private static string Shape(string text)
+    {
+        int lines = text.Count(c => c == '\n') + 1;
+        return lines > 1 ? $"{lines} lines, {text.Length} characters" : $"{text.Length} characters";
+    }
 
     private static string Preview(string text)
     {

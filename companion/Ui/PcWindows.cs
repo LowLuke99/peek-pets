@@ -74,8 +74,14 @@ public sealed class ToastWindow : Window
         {
             if (openPath is not null)
             {
-                var args = File.Exists(openPath) ? $"/select,\"{openPath}\"" : $"\"{openPath}\"";
-                try { Process.Start(new ProcessStartInfo("explorer.exe", args) { UseShellExecute = true })?.Dispose(); } catch (Exception) { }
+                // Show the file in its folder; if it's gone, open the folder (never run the file).
+                var folder = System.IO.Path.GetDirectoryName(openPath);
+                var args = File.Exists(openPath) ? $"/select,\"{openPath}\"" : folder is not null && Directory.Exists(folder) ? $"\"{folder}\"" : null;
+                var explorer = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+                if (args is not null)
+                {
+                    try { Process.Start(new ProcessStartInfo(explorer, args) { UseShellExecute = true })?.Dispose(); } catch (Exception) { }
+                }
             }
             Close();
         };
@@ -84,6 +90,7 @@ public sealed class ToastWindow : Window
 
     public static void Show(string title, string body, string? openPath)
     {
+        while (Open.Count >= 4) Open[0].Close(); // never a wall of toasts
         var toast = new ToastWindow(title, body, openPath) { Opacity = 0 };
         Open.Add(toast);
         toast.Show();
@@ -163,7 +170,17 @@ public sealed class CursorRing : Window
 /// <summary>"Your iPhone wants to: Lock this PC" with Allow / Don't allow. Shown once per phone and command.</summary>
 public sealed class ApprovalPrompt(Window owner) : IApprovalPrompt
 {
-    public Task<bool> AskAsync(string deviceName, string powerLabel, string commandLabel)
+    private readonly SemaphoreSlim _oneAtATime = new(1, 1);
+
+    /// <summary>Dialogs queue up: only one is ever on screen.</summary>
+    public async Task<bool> AskAsync(string deviceName, string powerLabel, string commandLabel)
+    {
+        if (!await _oneAtATime.WaitAsync(PowerHost.ApprovalTimeout)) return false;
+        try { return await ShowAsync(deviceName, powerLabel, commandLabel); }
+        finally { _oneAtATime.Release(); }
+    }
+
+    private Task<bool> ShowAsync(string deviceName, string powerLabel, string commandLabel)
     {
         var tcs = new TaskCompletionSource<bool>();
         owner.Dispatcher.BeginInvoke(() =>

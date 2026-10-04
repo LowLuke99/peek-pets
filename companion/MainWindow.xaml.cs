@@ -125,7 +125,7 @@ public partial class MainWindow : Window
         if (s.Device is { } device)
         {
             var forget = new Button { Content = "Forget", Style = (Style)FindResource("PillButton"), Padding = new Thickness(10, 4, 10, 4), FontSize = 12 };
-            forget.Click += (_, _) => { _pairing.Forget(device.Id); _powers.ForgetDevice(device.Id); _ = s.CloseAsync("forgotten"); AddLog($"Forgot {device.Name}"); };
+            forget.Click += (_, _) => { _pairing.Forget(device.Id); _server.RevokeDevice(device.Id); AddLog($"Forgot {device.Name}"); };
             Grid.SetColumn(forget, 1);
             row.Children.Add(forget);
         }

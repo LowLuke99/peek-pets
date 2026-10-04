@@ -2,10 +2,12 @@ using System.Text.Json;
 
 namespace PeekPets.Companion.Powers;
 
-public sealed record AuditEntry(DateTime At, string Device, string Power, string Command, string Outcome, string? Detail = null)
+public sealed record AuditEntry(DateTime At, string Device, string Power, string Command, string Outcome, string? Detail = null, int Count = 1)
 {
     public override string ToString() =>
-        $"{At.ToLocalTime():HH:mm:ss}  {Device} → {Power}.{Command}: {Outcome}{(Detail is null ? "" : $" ({Detail})")}";
+        $"{At.ToLocalTime():HH:mm:ss}  {Device} → {Power}.{Command}: {Outcome}{(Detail is null ? "" : $" ({Detail})")}{(Count > 1 ? $"  ×{Count}" : "")}";
+
+    public bool SameAs(AuditEntry o) => Device == o.Device && Power == o.Power && Command == o.Command && Outcome == o.Outcome;
 }
 
 /// <summary>
@@ -23,13 +25,21 @@ public sealed class AuditLog(string? path = null)
 
     public IReadOnlyList<AuditEntry> Entries { get { lock (_gate) return _entries.ToList(); } }
 
+    /// <summary>Adds an entry. Identical repeats within a minute collapse into one counted line (spam can't flush history).</summary>
     public void Add(AuditEntry entry)
     {
         lock (_gate)
         {
-            _entries.AddFirst(entry);
-            while (_entries.Count > Keep) _entries.RemoveLast();
-            if (path is not null) Append(path, entry);
+            if (_entries.First?.Value is { } top && top.SameAs(entry) && entry.At - top.At < TimeSpan.FromMinutes(1))
+            {
+                _entries.First.Value = top with { At = entry.At, Count = top.Count + 1 };
+            }
+            else
+            {
+                _entries.AddFirst(entry);
+                while (_entries.Count > Keep) _entries.RemoveLast();
+                if (path is not null) Append(path, entry);
+            }
         }
         Added?.Invoke(entry);
     }
