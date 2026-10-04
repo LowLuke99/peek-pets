@@ -194,6 +194,7 @@ export class App {
       if (info.newlyPaired) this.ui.toast(`Paired with ${info.pc}!`);
       if (this.ui.sheetKind === 'pair') this.ui.closeSheet();
       this.rig.hopUp(0.7);
+      this.onConnected?.();
     }
     if (prev === 'connected' && state !== 'connected') {
       this.disconnectedAt = Date.now();

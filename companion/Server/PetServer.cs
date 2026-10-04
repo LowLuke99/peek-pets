@@ -31,6 +31,7 @@ public sealed class PetServer : IAsyncDisposable
     private readonly CursorSampler _sampler;
     private readonly FactHub _facts;
     private readonly Stopwatch _clock;
+    private readonly LocalCertificates? _certs;
     private readonly List<ClientSession> _sessions = [];
     private readonly object _gate = new();
     private readonly CancellationTokenSource _shutdown = new();
@@ -38,14 +39,18 @@ public sealed class PetServer : IAsyncDisposable
 
     public string PhoneRoot { get; }
     public int Port => _settings.Port;
+    /// <summary>HTTPS port for the installable app mode (always Port + 1).</summary>
+    public int SecurePort => _settings.Port + 1;
+    public bool SecureEnabled { get; private set; }
     public string Version { get; } = typeof(PetServer).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
 
     public event Action? SessionsChanged;
     public event Action<string>? Log;
     public event Action<string, string>? PetEvent; // (phone name, event name)
 
-    public PetServer(CompanionSettings settings, Pairing pairing, CursorSampler sampler, FactHub facts, Stopwatch clock)
+    public PetServer(CompanionSettings settings, Pairing pairing, CursorSampler sampler, FactHub facts, Stopwatch clock, LocalCertificates? certs = null)
     {
+        _certs = certs;
         _settings = settings;
         _pairing = pairing;
         _sampler = sampler;
@@ -66,7 +71,22 @@ public sealed class PetServer : IAsyncDisposable
     {
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory });
         builder.Logging.ClearProviders();
-        builder.WebHost.ConfigureKestrel(k => k.ListenAnyIP(_settings.Port));
+        builder.WebHost.ConfigureKestrel(k =>
+        {
+            k.ListenAnyIP(_settings.Port);
+            if (_certs is null) return;
+            try
+            {
+                _ = _certs.ServerCertificate(CurrentLan(), Environment.MachineName); // fail early, not mid-handshake
+                k.ListenAnyIP(SecurePort, o => o.UseHttps(h =>
+                    h.ServerCertificateSelector = (_, _) => _certs.ServerCertificate(CurrentLan(), Environment.MachineName)));
+                SecureEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                Log?.Invoke($"Secure (app) mode unavailable: {ex.Message}");
+            }
+        });
         var app = builder.Build();
 
         app.Use(async (ctx, next) =>
@@ -83,7 +103,12 @@ public sealed class PetServer : IAsyncDisposable
         });
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
 
-        app.MapGet("/api/info", () => Results.Json(new { app = "peek-pets", name = "Peek Pets Companion", version = Version, proto = ProtocolVersion }));
+        app.MapGet("/api/info", () => Results.Json(new { app = "peek-pets", name = "Peek Pets Companion", version = Version, proto = ProtocolVersion, securePort = SecureEnabled ? SecurePort : (int?)null }));
+        app.MapGet("/api/assets", () => Results.Json(AssetManifest()));
+        if (_certs is not null)
+        {
+            app.MapGet("/ca.crt", () => Results.File(_certs.AuthorityDer, "application/x-x509-ca-cert", "PeekPets-Local-CA.crt"));
+        }
         app.Map("/ws", HandleSocketAsync);
 
         var files = new PhysicalFileProvider(PhoneRoot);
@@ -275,6 +300,25 @@ public sealed class PetServer : IAsyncDisposable
         list = layout.Screens.Select(s => new { x = s.X, y = s.Y, w = s.W, h = s.H, primary = s.Primary }),
         virt = new { x = layout.Virtual.X, y = layout.Virtual.Y, w = layout.Virtual.W, h = layout.Virtual.H },
     };
+
+    private static List<System.Net.IPAddress> CurrentLan() => NetworkInfo.LanAddresses().Select(a => a.Address).ToList();
+
+    /// <summary>
+    /// Every phone file + a version hash. The phone's service worker precaches these so
+    /// the installed app opens even when the PC is off, and re-caches when the hash moves.
+    /// </summary>
+    private object AssetManifest()
+    {
+        var root = new DirectoryInfo(PhoneRoot);
+        var files = root.EnumerateFiles("*", SearchOption.AllDirectories)
+            .Where(f => !f.Name.StartsWith('.'))
+            .OrderBy(f => f.FullName, StringComparer.Ordinal)
+            .ToList();
+        var paths = files.Select(f => "/" + Path.GetRelativePath(root.FullName, f.FullName).Replace(Path.DirectorySeparatorChar, '/')).ToList();
+        var stamp = string.Join("|", files.Select(f => $"{f.FullName}:{f.Length}:{f.LastWriteTimeUtc.Ticks}"));
+        var version = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(stamp)))[..16];
+        return new { version, files = paths.Prepend("/").ToList() };
+    }
 
     private double Now() => Math.Round(_clock.Elapsed.TotalMilliseconds, 1);
     private static string? Str(JsonElement m, string key) => m.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;

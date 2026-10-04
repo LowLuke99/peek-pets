@@ -69,6 +69,12 @@ public partial class MainWindow : Window
         CodeText.Text = Pairing.Format(_pairing.Code);
         if (_baseUrl.Length == 0) return;
         QrImage.Source = RenderQr($"{_baseUrl}#pair={_pairing.Code}");
+        if (_server.SecureEnabled)
+        {
+            InstallQr.Source = RenderQr($"{_baseUrl}install.html#pair={_pairing.Code}");
+            SecureText.Text = $"Secure app address: https://{new Uri(_baseUrl).Host}:{_server.SecurePort}";
+        }
+        else InstallCard.Visibility = Visibility.Collapsed;
         UpdateExpiry();
     }
 

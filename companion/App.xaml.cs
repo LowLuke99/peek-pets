@@ -22,7 +22,8 @@ public partial class App : Application
         var pairing = new Pairing(settings, fixedCode: args.GetValueOrDefault("pair-code"));
         var sampler = new CursorSampler(clock);
         var facts = new FactHub(settings.IsShared);
-        _server = new PetServer(settings, pairing, sampler, facts, clock);
+        LocalCertificates? certs = args.ContainsKey("no-https") ? null : new LocalCertificates(args.GetValueOrDefault("cert-dir"));
+        _server = new PetServer(settings, pairing, sampler, facts, clock, certs);
 
         var window = new MainWindow(_server, pairing, settings, sampler);
         MainWindow = window;

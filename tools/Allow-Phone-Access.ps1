@@ -5,8 +5,9 @@
   What it does:
     1. Removes old Peek Pets firewall rules and any Block rule Windows made for
        the companion (e.g. if a firewall prompt was dismissed).
-    2. Adds ONE inbound Allow rule: TCP port <Port>, only from your local subnet,
-       only for the companion program. Nothing from the internet is allowed.
+    2. Adds ONE inbound Allow rule: TCP ports <Port> (pet) and <Port>+1 (installable
+       app, HTTPS), only from your local subnet, only for the companion program.
+       Nothing from the internet is allowed.
   It does not change your Wi-Fi's Public/Private setting.
 #>
 param(
@@ -32,12 +33,12 @@ $ruleArgs = @{
     Direction     = 'Inbound'
     Action        = 'Allow'
     Protocol      = 'TCP'
-    LocalPort     = $Port
+    LocalPort     = @($Port, $Port + 1)
     RemoteAddress = 'LocalSubnet'
     Profile       = 'Any'
 }
 if ($Program) { $ruleArgs.Program = $Program }
 New-NetFirewallRule @ruleArgs | Out-Null
 
-Write-Host "Done: TCP $Port is open to devices on your local network only." -ForegroundColor Green
+Write-Host "Done: TCP $Port and $($Port + 1) are open to devices on your local network only." -ForegroundColor Green
 Start-Sleep -Seconds 2

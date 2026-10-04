@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Install Peek Pets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FFF3EC">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    html, body { overflow: auto; height: auto; }
+    body { background: linear-gradient(180deg, #FFF3EC, #FFDCCD); min-height: 100vh; -webkit-user-select: text; user-select: text; }
+    main { max-width: 520px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 32px); }
+    .hero { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+    .hero img { width: 72px; height: 72px; border-radius: 18px; box-shadow: var(--shadow); }
+    h1 { margin: 0; font-size: 28px; font-weight: 900; }
+    .sub { margin: 2px 0 0; color: var(--ink-soft); font-weight: 700; }
+    ol { list-style: none; padding: 0; margin: 18px 0 0; counter-reset: step; display: grid; gap: 12px; }
+    li { counter-increment: step; background: #fff; border-radius: 20px; padding: 16px 16px 16px 58px; position: relative; box-shadow: 0 4px 14px rgba(122, 59, 42, 0.06); font-weight: 700; line-height: 1.45; }
+    li::before { content: counter(step); position: absolute; left: 16px; top: 15px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 900; }
+    li.done::before { content: '✓'; background: var(--good); }
+    li small { display: block; color: var(--ink-soft); font-weight: 600; margin-top: 4px; }
+    li .btn { margin-top: 10px; display: inline-block; text-decoration: none; }
+    .path { font-weight: 900; }
+    .status { margin-top: 10px; font-weight: 800; }
+    .status.ok { color: var(--good); }
+    .note { color: var(--ink-soft); font-weight: 600; font-size: 14px; margin-top: 18px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="hero">
+      <img src="icons/icon-180.png" alt="">
+      <div>
+        <h1>Install Peek Pets</h1>
+        <p class="sub">Make your pet a real home-screen app that opens even when the PC is off.</p>
+      </div>
+    </div>
+
+    <ol>
+      <li id="s1">Download your PC's private certificate.
+        <small>It only works for your home network (it's limited to local addresses), so it can't be used to impersonate real websites.</small>
+        <a class="btn" href="ca.crt">Download certificate</a>
+        <small>Safari asks to allow a configuration profile. Tap <b>Allow</b>.</small>
+      </li>
+      <li id="s2">Install it: open <span class="path">Settings → Profile Downloaded → Install</span>.
+        <small>You'll enter your passcode. It's labelled “Peek Pets Local CA”.</small>
+      </li>
+      <li id="s3">Trust it: <span class="path">Settings → General → About → Certificate Trust Settings</span>, then switch on <b>Peek Pets Local CA</b>.
+        <div id="trust" class="status">Checking…</div>
+      </li>
+      <li id="s4">Open the app, then tap <span class="path">Share → Add to Home Screen</span>.
+        <a id="openApp" class="btn btn--ghost" href="#">Open Peek Pets (secure)</a>
+      </li>
+    </ol>
+
+    <p class="note">Don't want to install anything? The normal link from the PC works fine in Safari. You just won't get the offline home-screen app. You can remove the certificate any time in Settings → General → VPN &amp; Device Management.</p>
+  </main>
+
+  <script type="module">
+    const pair = /pair=([A-Za-z0-9-]+)/.exec(location.hash)?.[1];
+    const info = await fetch('api/info').then((r) => r.json()).catch(() => ({}));
+    const port = info.securePort ?? (Number(location.port || 80) + 1);
+    const secure = `https://${location.hostname}:${port}/${pair ? `#pair=${pair}` : ''}`;
+    const open = document.getElementById('openApp');
+    open.href = secure;
+    const trust = document.getElementById('trust');
+
+    // A no-cors request succeeds only if the phone trusts the PC's certificate.
+    async function check() {
+      try {
+        await fetch(`https://${location.hostname}:${port}/api/info`, { mode: 'no-cors', cache: 'no-store' });
+        trust.textContent = 'Trusted! You can open the app.';
+        trust.className = 'status ok';
+        for (const id of ['s1', 's2', 's3']) document.getElementById(id).classList.add('done');
+        open.classList.remove('btn--ghost');
+        return true;
+      } catch {
+        trust.textContent = 'Not trusted yet. Finish steps 1–3, then come back here.';
+        return false;
+      }
+    }
+    if (!(await check())) {
+      const timer = setInterval(async () => { if (await check()) clearInterval(timer); }, 3000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    }
+  </script>
+</body>
+</html>

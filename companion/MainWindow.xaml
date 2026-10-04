@@ -78,6 +78,26 @@
                     </Grid>
                 </Border>
 
+                <Border x:Name="InstallCard" Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Background="White" CornerRadius="10" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="6" VerticalAlignment="Top">
+                            <Image x:Name="InstallQr" Width="104" Height="104" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="16,0,0,0">
+                            <TextBlock Text="OPTIONAL · INSTALL AS AN APP" Style="{StaticResource Heading}"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="13">
+                                Scan this to turn the pet into a home-screen app that opens even when this PC is off.
+                                It walks you through trusting a private certificate that only works on your home network.
+                            </TextBlock>
+                            <TextBlock x:Name="SecureText" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
                 <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
                     <StackPanel>
                         <Grid>
