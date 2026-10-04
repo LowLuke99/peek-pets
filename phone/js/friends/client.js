@@ -70,7 +70,7 @@ export class FriendsClient {
   block(id) { return this.call('POST', '/v1/block', { id }); }
   report(id, reason) { return this.call('POST', '/v1/report', { id, reason }); }
   messages(friend) { return this.call('GET', `/v1/messages?friend=${encodeURIComponent(friend)}`); }
-  send(to, { text, emote }) { return this.call('POST', '/v1/messages', { to, text, emote }); }
+  send(to, { text, emote, challenge }) { return this.call('POST', '/v1/messages', { to, text, emote, challenge }); }
   read(friend) { return this.call('POST', '/v1/read', { friend }); }
 
   async deleteAccount() {

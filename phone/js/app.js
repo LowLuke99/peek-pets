@@ -29,6 +29,7 @@ import { nativePairSheet } from './ui/nativePair.js';
 import { isNative, discoverPcs, haptic } from './native.js';
 import { PlayGlue } from './play/glue.js';
 import { GameHost } from './games/host.js';
+import { FriendsGlue } from './friends/glue.js';
 
 export const VERSION = '0.3.0';
 const BUBBLE_COOLDOWN_MS = 4500;
@@ -87,6 +88,7 @@ export class App {
     this.games = new GameHost(this);
     this.play = new PlayGlue(this);
     this.toys = { draw: (ctx) => { this.play.drawToys(ctx); this.games.draw(ctx); } };
+    this.friends = new FriendsGlue(this);
     this.setSpecies(this.settings.pet, { quiet: true });
     this.applySettings();
     this.wireInput();
@@ -615,6 +617,10 @@ export class App {
   openSheet(kind, focus) {
     this.sheetDispose?.();
     this.sheetDispose = null;
+    if (kind === 'friends') {
+      this.friends.show();
+      return;
+    }
     if (kind === 'style') {
       this.ui.openSheet('style', 'Shop', this.play.styleSheet());
       return;
