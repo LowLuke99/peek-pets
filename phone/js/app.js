@@ -134,6 +134,8 @@ export class App {
     this.ambientParticles(dt, pose);
     this.particles.update(dt);
     const props = this.glue.frame(dt, wall);
+    this.renderer.setInset(this.glue.card.visible ? this.ui.nudgeInset() : 0);
+    this.renderer.tick(dt);
     this.renderer.draw(this.species, pose, this.speciesState, this.particles, this.ball, props);
     this.previews.update(dt, this.rig.gaze, this.emotion);
 

@@ -107,6 +107,15 @@ export class UI {
     this.toastTimer = setTimeout(() => { this.toastEl.hidden = true; }, ms);
   }
 
+  /** Pixels from the bottom edge covered by the nudge card (0 if hidden). Also lifts toasts above it. */
+  nudgeInset() {
+    const el = document.getElementById('nudge');
+    if (!el || el.hidden) return 0;
+    const covered = Math.max(0, window.innerHeight - el.getBoundingClientRect().top);
+    document.documentElement.style.setProperty('--nudge-cover', `${Math.round(covered)}px`);
+    return covered;
+  }
+
   setHud(text) {
     this.hud.hidden = text == null;
     if (text != null) this.hud.textContent = text;

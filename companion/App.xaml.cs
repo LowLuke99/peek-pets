@@ -31,7 +31,8 @@ public partial class App : Application
         ISystemActions actions = args.ContainsKey("dry-run-actions") ? new DryRunActions() : new WindowsActions(Dispatcher);
         var dataDir = Path.GetDirectoryName(settings.FilePath) ?? AppContext.BaseDirectory;
         var approvals = new DeferredApproval();
-        var powers = new PowerHost(settings, PowerCatalog.Create(settings), actions, new OverridableIdle(new Win32Idle()),
+        var inbox = args.TryGetValue("inbox", out var inboxDir) ? new InboxStore(inboxDir) : null; // tests keep photos out of the real inbox
+        var powers = new PowerHost(settings, PowerCatalog.Create(settings, inbox: inbox), actions, new OverridableIdle(new Win32Idle()),
             args.ContainsKey("auto-approve") ? new AutoApprove() : approvals, new AuditLog(Path.Combine(dataDir, "audit.log")));
         _server = new PetServer(settings, pairing, sampler, facts, clock, certs)
         {

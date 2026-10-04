@@ -27,9 +27,34 @@ export class Renderer {
     const portrait = this.H >= this.W;
     // Leave room for the top bar and bottom action dock.
     // The pet is the app: it fills most of the screen between the top bar and dock.
-    this.S = portrait ? Math.min(this.W * 0.86, this.H * 0.47) : Math.min(this.W * 0.42, this.H * 0.66);
+    this.baseS = portrait ? Math.min(this.W * 0.86, this.H * 0.47) : Math.min(this.W * 0.42, this.H * 0.66);
+    this.baseOy = portrait ? this.H * 0.73 : this.H * 0.8;
     this.ox = this.W / 2;
-    this.oy = portrait ? this.H * 0.73 : this.H * 0.8;
+    this.S ??= this.baseS;
+    this.oy ??= this.baseOy;
+    this.layout(1);
+  }
+
+  /**
+   * Keep the pet clear of a card at the bottom of the screen: `bottomPx` is how far up
+   * from the bottom edge is covered (0 = nothing). The pet glides up and shrinks a bit.
+   */
+  setInset(bottomPx) {
+    this.inset = bottomPx;
+  }
+
+  /** Eases the stage toward its target layout; k = 1 snaps. */
+  layout(k) {
+    const floorY = this.H - (this.inset ?? 0) - 14;
+    const oy = Math.min(this.baseOy, floorY);
+    const top = Math.min(this.H * 0.24, 190); // room for the top bar, status and a bubble
+    const S = this.inset ? Math.max(this.baseS * 0.55, Math.min(this.baseS, (oy - top) / 1.08)) : this.baseS;
+    this.S += (S - this.S) * k;
+    this.oy += (oy - this.oy) * k;
+  }
+
+  tick(dt) {
+    this.layout(1 - Math.exp(-7 * dt));
   }
 
   /** Lower render resolution if frames are slow (keeps 60 fps on older iPhones). */

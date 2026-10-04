@@ -160,8 +160,8 @@ export class PowerGlue {
   /** Props + info for the renderer, and keeps the rig's music bop in sync. */
   frame(dt, now) {
     const base = petCues(this.client.state, now);
-    // Keep the ringing timer in its hand for a moment after it's gone from the list.
-    const cues = now < this.alarmUntil && !base.hand ? { ...base, hand: 'timer' } : base;
+    // A ringing timer goes in its hand (even over the focus book) for a few seconds.
+    const cues = now < this.alarmUntil ? { ...base, hand: 'timer' } : base;
     this.cues = cues;
     this.app.rig.bop = cues.bop;
 

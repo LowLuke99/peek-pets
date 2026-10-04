@@ -581,3 +581,9 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .ptext--line { flex: 1; min-height: 44px; resize: none; }
 .grabbed { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
 .pitems { margin: 6px 0 0; padding-left: 20px; font-weight: 700; font-size: 14px; }
+
+/* Toasts float above a visible nudge card instead of covering its buttons. */
+.nudge:not([hidden]) ~ .toast { bottom: calc(var(--nudge-cover, 260px) + 12px); }
+
+body:has(.nudge:not([hidden])) .tray { opacity: 0; pointer-events: none; }
+.tray { transition: opacity 0.25s; }
