@@ -35,8 +35,15 @@ export class PowerGlue {
     return () => this.listeners.delete(fn);
   }
 
+  /** What the pet holds/wears now. One place, so every reader sees the same answer. */
+  computeCues(now) {
+    const base = petCues(this.client.state, now);
+    // A ringing timer goes in its hand (even over the focus book) for a few seconds.
+    return now < this.alarmUntil ? { ...base, hand: 'timer' } : base;
+  }
+
   onChange(key) {
-    this.cues = petCues(this.client.state, Date.now());
+    this.cues = this.computeCues(Date.now());
     for (const fn of this.listeners) fn(key);
   }
 
@@ -122,6 +129,7 @@ export class PowerGlue {
         app.rig.perform('shake');
         app.sfx.play('alarm');
         this.alarmUntil = Date.now() + 3500;
+        this.cues = this.computeCues(Date.now());
         haptic('alarm');
         notify(`⏰ ${data.label ?? 'Timer'}`, 'Time\'s up!');
         break;
@@ -159,9 +167,7 @@ export class PowerGlue {
   // ---------------------------------------------------------------- per frame
   /** Props + info for the renderer, and keeps the rig's music bop in sync. */
   frame(dt, now) {
-    const base = petCues(this.client.state, now);
-    // A ringing timer goes in its hand (even over the focus book) for a few seconds.
-    const cues = now < this.alarmUntil ? { ...base, hand: 'timer' } : base;
+    const cues = this.computeCues(now);
     this.cues = cues;
     this.app.rig.bop = cues.bop;
 

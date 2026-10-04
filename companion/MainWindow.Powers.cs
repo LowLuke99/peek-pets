@@ -155,6 +155,39 @@ public partial class MainWindow
         if (FavLabel.Text.Length == 0) FavLabel.Text = Path.GetFileNameWithoutExtension(dialog.FileName);
     }
 
+    /// <summary>Renders the window to a PNG (for docs) once it has settled, then quits.</summary>
+    public void SnapshotAndExit(string path)
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            if (Content is FrameworkElement root)
+            {
+                var dpi = VisualTreeHelper.GetDpi(this);
+                var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                    (int)(root.ActualWidth * dpi.DpiScaleX), (int)(root.ActualHeight * dpi.DpiScaleY), dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+                var bg = new DrawingVisual();
+                using (var dc = bg.RenderOpen()) dc.DrawRectangle(Background, null, new Rect(0, 0, root.ActualWidth, root.ActualHeight));
+                bmp.Render(bg);
+                bmp.Render(root);
+                var png = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+                using var file = File.Create(path);
+                png.Save(file);
+            }
+            Application.Current.Shutdown();
+        };
+        timer.Start();
+    }
+
+    /// <summary>Opens a tab by header text ("powers", "labs").</summary>
+    public void SelectTab(string name)
+    {
+        foreach (TabItem tab in Tabs.Items)
+            if (tab.Header?.ToString()?.StartsWith(name, StringComparison.OrdinalIgnoreCase) == true) Tabs.SelectedItem = tab;
+    }
+
     private void ResetApprovals_Click(object sender, RoutedEventArgs e) => _powers.ResetApprovals();
 
     private void ResetScores_Click(object sender, RoutedEventArgs e) => _powers.ResetScores();

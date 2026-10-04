@@ -82,6 +82,74 @@ the last 8 pings. Then `delay = phone_now − (ts − offset)` for each cursor m
 live test measures the real thing: a cursor move made by `SetCursorPos` to the moment the
 page receives it, and to the moment the eyes settle.
 
+## Helpful powers (v2, still protocol v1: all additive)
+
+A *power* is a switchable experiment (break buddy, focus, media, watch, health, handoff,
+quick actions, timers, away summary). It runs only when **allowed on the PC** (companion
+window → Powers) **and switched on by the phone** (Powers screen). Off means stopped: it
+reads nothing and sends nothing. Older phones/companions ignore all of this.
+
+### PC → phone
+| Message | Meaning |
+|---|---|
+| `{"t":"powers","list":[{key,label,description,allowed,on,active,commands:[{name,label}],state}]}` | The whole list. Sent after `auth_ok` and whenever something is switched. `state` is `null` unless `active`. |
+| `{"t":"power_state","key":"focus","state":{…}}` | One power's state changed (countdowns are sent as `leftSec`; the phone counts down locally). |
+| `{"t":"power","key":"breaks","ev":"nudge","data":{"kind":"eyes"}}` | Something happened the pet should react to (see table below). |
+| `{"t":"cmd_pending","id":7}` | The PC is asking its user to approve this command (first use). |
+| `{"t":"cmd_result","id":7,"ok":true,"data":{…}}` / `{"ok":false,"reason":"denied"}` | Result of a command. |
+
+Events: `breaks` nudge (eyes/stretch/water), break_done, tired, ignored · `focus` started, done,
+stopped · `media` playing, paused · `watch` watching, done · `health` alert (kind disk/memory/cpu/heat,
+level, title, detail, actions) · `handoff` received · `quick` locking · `timers` done · `away` summary
+(awayMin, items[]).
+
+### Phone → PC
+| Message | Meaning |
+|---|---|
+| `{"t":"power_set","key":"media","on":true}` | Phone-side switch (persisted on the PC; audited). |
+| `{"t":"power_ack","key":"breaks","action":"done"\|"snooze"\|"skip"\|"dismiss","kind":"eyes"}` | Answer to a nudge (feeds the Labs scorecard). |
+| `{"t":"cmd","id":7,"power":"media","name":"play_pause","args":{}}` | Run a named command. |
+
+Commands (fixed allowlist, nothing else exists): `focus` start{minutes 1–180}, stop · `media`
+play_pause, next, prev, vol_up, vol_down, mute · `watch` processes, watch{pid}, watch_busy,
+watch_downloads, cancel{id} · `health` open_storage, open_cleanup, open_taskmgr, open_downloads,
+open_temp, space_hints · `handoff` send_text{text ≤ 4000, to clipboard\|inbox}, grab_clipboard,
+open_inbox (photos use the upload below) · `quick` find_cursor, lock, mic_toggle, launch{id of a
+favourite configured on the PC} · `timers` add{label ≤ 40, seconds 5–86400}, cancel{id}.
+
+### The gate every command passes (PowerHost.RunCommandAsync)
+1. Authenticated session of a still-paired device (else `not_paired`).
+2. Per-device budget, 60/min, checked first so refused commands can't flood (`rate_limited`).
+3. Allowlist (`unknown_command`) → PC permission (`not_allowed`) → phone switch (`power_off`).
+4. Per-device, per-command rate limit (e.g. lock 3/min, volume 120/min).
+5. **First use per device + command: the PC shows an Allow / Don't allow dialog** (one at a
+   time, max 3 open, 60 s timeout). "Don't allow" = no re-prompt for 5 minutes. *Sensitive*
+   commands (reading the clipboard) are approved for 10 minutes only, never saved, and the PC
+   shows a toast every time.
+6. Run under the power's lock; every attempt (allowed or not) goes to the audit log
+   (`%APPDATA%\PeekPetsudit.log`, identical repeats collapse).
+
+Reasons: `unknown_command`, `not_allowed`, `power_off`, `rate_limited`, `denied`, `busy`,
+`not_paired`, `bad_args`, `not_found`, `too_many`, `empty`, `no_mic`, `not_an_image`,
+`inbox_full`, `disk_full`, `error`.
+
+Transport limits: 24 KB per message; ~900 messages/min per connection (power_set 30/min,
+power_ack 60/min per device); a connection that keeps exceeding them is closed.
+
+### Photo upload
+`POST /api/inbox` with `Authorization: Bearer <device token>` and the image as the body
+(≤ 15 MB, read fully within 30 s before anything else happens). Same gate as `handoff.send_photo`.
+The PC identifies JPEG/PNG/GIF/WebP/HEIC by magic bytes, names the file itself
+(`Photo <date>.jpg`) in `~\Peek Pets Inbox`, and refuses anything else (415), or when the
+inbox passes 500 MB / 300 files or the disk would drop under 2 GB free (507).
+
+### Native app additions
+* **Bonjour:** the companion advertises `_peekpets._tcp` (Windows DNS-SD). TXT record:
+  `pc`, `ip` (up to 3 IPv4, comma separated), `port`, `sport` (HTTPS port or empty), `proto`, `ver`.
+* **Origins:** pages of the iPhone app come from `capacitor://localhost`. That origin (and
+  `ionic://localhost`) may open the socket and gets CORS headers for `/api/*`. Nothing else
+  does, and requests whose `Host` isn't an IP, `localhost`, this PC's name or `*.local` get 403.
+
 ## Reserved for the next milestones
 * `say` is already wired PC → phone. An AI or notification feature only has to call
   `PetServer.Say(text)`.

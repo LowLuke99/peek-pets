@@ -1,4 +1,147 @@
-# Build record: Peek Pets prototype
+# Build record: Peek Pets
+
+## v2: helpful powers, clay looks, native iPhone app (2026-10-04)
+
+*Built in one autonomous session from `docs/NEXT-SESSION-PROMPT.md`, in its order: powers →
+looks → native app, each left working and tested before the next. v1's record is below.*
+
+![Clay pets](img/clay-all-pets.png)
+
+### 1. Helpful powers ("Labs")
+Nine switchable experiments, one framework (`companion/Powers/`, `phone/js/powers/`):
+
+| Power | What it does | How the pet shows it |
+|---|---|---|
+| **Break & eye buddy** | Active time from the idle timer (no keys read). 20-20-20 eye breaks, a stretch after 90 min of continuous activity, water every hour. Snooze / skip / done. A real break (3+ min away) resets the streak. Nudges wait during focus sessions; unanswered ones expire quietly. | Looks far away for 20 s with a countdown ring, stretches with little arms up, holds a glass of water, gets visibly tired (tired face + yawns) on long stretches, cheers when you're back from a break. |
+| **Focus session** | 10/25/50 min timer started from the phone. | Sits at a tiny desk with an open book and a steaming mug (progress ribbon on the desk), focused face, celebrates at the end and offers a 5-min break timer. |
+| **Media remote** | Play/pause, next, prev, volume ±, mute (Windows media keys); title/artist/app from the Windows media session (read only). | Headphones + nods to the beat while music plays; music notes when a song starts. |
+| **Tell me when it's done** | Watch a process you pick, "the busy one" (top CPU), or the Downloads folder. Done = exited, or was busy then quiet for 20 s; downloads = no partial files and settled. PC toast too. | Holds an hourglass while waiting, points at it, confetti + chime when done. |
+| **PC health watchdog** | Low disk on any drive (big drives judged by GB, small by %), a fill-rate forecast ("losing ~1 GB a day: full in ~13 days") from daily samples, "where did the space go" (Recycle Bin / Temp / Downloads sizes), RAM/CPU hog by app name (sustained 60 s), heat via Windows' thermal-zone "passive limit" (throttling). One-tap Storage Settings, Disk Cleanup, Task Manager, Downloads, Temp. | Worried face, sweat drop, a bandage on its head while a disk is low. |
+| **Phone ↔ PC handoff** | Text → PC clipboard or `~\Peek Pets Inbox`; photo → inbox (magic-byte checked); grab the PC's copied text. | Sparkles + "Sent to your PC! ✈️". |
+| **Find cursor & quick actions** | Rings around the mouse pointer on the PC, lock PC, mic mute toggle (Core Audio, no drivers), favourite apps/sites configured on the PC only. | Points toward the cursor; waves goodbye when locking. |
+| **Timers & reminders** | "pizza in 12 min", "tea 3", "1h30 laundry" (natural phrases), presets; ring on phone + PC. | Holds a kitchen timer whose hand shows time left; startle + shake + alarm when it rings. |
+| **Away summary** | Collects what happened while you were away 5+ min (renders done, timers, skipped breaks, still-low disk) and greets you when you're back. | Waves, "Welcome back!" card with the list. |
+
+**Framework.** A power = PC module (sensor/actions, `IPower`) + phone panel + pet reactions,
+registered in `PowerCatalog` / `PANELS`. Active only when allowed on the PC (companion
+**Powers** tab) **and** switched on in the phone's **Powers** screen (⚡ in the top bar). Off =
+stopped: no reading, no sending. Defaults: allowed on the PC, off on the phone ("Turn all on"
+in Labs). **The pet is the interface**: every power becomes a pose, prop, expression, bubble or
+a gentle card (never guilt-trippy; cards queue and expire, and the pet glides up so a card never
+covers it). Live chips above the dock show the focus countdown, the next timer, what's watched
+and what's playing.
+
+**Phone → PC commands** (new): a fixed allowlist of named commands, PC permission + phone
+switch, per-device rate limits, a first-use **Allow / Don't allow** dialog on the PC per phone
+and command, and an audit log. Clipboard reads are "sensitive" (10-minute approval, a PC toast on
+every read, password-manager clipboards refused). Commands that change the PC (volume, lock,
+launch) are tested through a dry-run backend, never for real. Details: [PROTOCOL.md](PROTOCOL.md).
+
+**Labs scorecard** (companion → *Labs scorecard* tab): per power, **Fired** (the pet brought
+something up), **Used** (you ran a command or said "done"), **Dismissed** (snoozed / skipped /
+closed), last used, and a plain verdict ("★ earning its place", "mostly dismissed: tune or drop",
+"getting used", "not tried yet"). Counted on the PC only. **Plan:** use everything for a week or
+two, keep the ★ ones, and tune or drop the "mostly dismissed" ones (tell me which: I'll remove
+them or change their timing, e.g. eye breaks every 30 min instead of 20).
+
+![Powers screen](img/powers-screen.png) ![Focus + music](img/power-focus-music.png) ![Eye break](img/power-eye-break.png)
+![Timer](img/power-timer.png) ![Health](img/power-health.png) ![Away](img/power-away.png)
+![Companion: Powers tab](img/companion-powers.png) ![Companion: Labs scorecard](img/companion-labs.png)
+
+### 2. Clay looks (WebGL)
+* `phone/js/gl/`: a WebGL2 layer under the 2D canvas. Bodies are **SDF parts** (superellipse,
+  ellipse, rounded rect, capsule, metaballs, ring, rounded polygon) drawn one quad each and lit in
+  one shader: ellipsoid-dome or bevel height field, wrapped key light, subsurface glow at the
+  terminator and thin edges, rim light, tight + broad gloss, floor bounce, ground occlusion,
+  recessed panels (face windows/visors with an inner lip shadow), grain fixed to the surface,
+  additive bloom for glowing pets, soft contact shadows. Squash/stretch, lean, breathing and all
+  secondary motion work unchanged (parts use the same transform stack as the 2D code).
+* Faces, props and particles stay on the 2D canvas above (same transform); back props (headband,
+  Puff's rainbow) go on a 2D canvas below. Eyes gained iris striations, a limbal ring, a wet lower
+  reflection and a cornea sheen (in both looks).
+* **All 8 pets** have `gl()` + `drawFace()`. Materials: clay (Mochi), vinyl (Pip, Sprig's shell,
+  Plum's ring), jelly (Nimbus: translucent + glow), glossy cosmic orb (Plum), glass visor (Sprig),
+  emissive metaball flame (Ember), soft metaball cloud (Puff), marshmallow fluff (Bun).
+* **Fallback**: Settings → Look: Auto / Clay 3D / Classic. Auto uses Classic on software GL and
+  drops to Classic by itself if frames stay slow at the lowest resolution; context loss falls back too.
+* New poses/props: yawn, stretch, look-far-away, wave, point, alarm shake, music bop; desk + book +
+  mug, headphones, kitchen timer, hourglass, bandage, water glass, mittens (Pip and Sprig use their
+  own limbs).
+* Battery: render resolution capped at 2×; 30 fps while asleep with nothing moving.
+* **Measured**: 60–63 fps in Chromium on this PC's GPU (RTX 3070) at 2× resolution, 5–9 parts a
+  frame. Not measured on an iPhone (see below).
+* Contact sheet: `node tools/e2e/gallery.mjs <url> <out> neutral,joy,sleepy,surprised clay`.
+* **AI texture/detail maps (proposal, no credits spent):** Kling/Higgsfield could generate subtle
+  clay/vinyl detail and normal maps (fingerprint-y clay grain, fuzz for Bun). Roughly ~4 credits per
+  map with Kling Omni images, ~10–20 maps for all pets. Say yes and I'll try one pet first.
+
+### 3. Native iPhone app
+Capacitor 8 wrapper (`app/`) reusing `phone/` unchanged, plus Bonjour "Find your PC" pairing (own
+Swift `PeekDiscovery` plugin; the companion advertises `_peekpets._tcp` through Windows DNS-SD),
+plain local-network WebSocket (no certificate), haptics, keep-awake and local notifications. GitHub
+Actions builds an unsigned `.ipa` on manual dispatch or `v*` tags (1m25s); a fastlane TestFlight lane
+is ready. **Install steps: [NATIVE-APP.md](NATIVE-APP.md)** (Sideloadly with a free Apple ID, or TestFlight).
+
+### What works, and how it was verified
+| Check | Result |
+|---|---|
+| Phone logic unit tests (`npm test`) | **60/60** (adds powers, timers, nudge cards, pet cues, GL scene math, pairing links) |
+| Companion unit tests (`dotnet test companion.tests`) | **93/93** (adds the command gate, approvals, cooldowns, sensitive commands, rate limits, audit, break coach, watch/downloads detectors, health rules + fill rate, timers, inbox sniffing/quotas, favourites, away digest, Host allowlist, Bonjour TXT) |
+| Powers end to end (`tools/e2e/powers-test.mjs`) | **26/26**: phone taps → recorded PC actions (media, focus, timers, clipboard, photo upload, cursor ring, lock, mic, Storage Settings, watch); PC events → pet reactions (eye break, timer, done, health, away); allowlist, tokens, unpaired sockets, rate limits, audit, off-means-off. Looped 20+ times; one race found and fixed (ringing timer vs. focus book). |
+| Existing suites | live test **23/23** in Chromium **and** WebKit (median cursor delivery 6.3 ms, eyes settle 110 ms), installable app **7/7**, dock actions **13/13** |
+| Native path (`tools/e2e/native-test.mjs`) | **6/6** with a fake Capacitor bridge |
+| Bonjour (`tools/e2e/mdns-test.mjs`) | discovered `LUKE-PC._peekpets._tcp.local`, TXT ip 10.0.0.206 port 8787 |
+| iOS build (GitHub macOS runner) | **pass**: arm64 `.ipa` with the web app, the plugin and the Info.plist keys |
+| Clay looks | all 8 pets × 4 expressions reviewed in `docs/img/clay-all-pets.png`; 60–63 fps (GPU) |
+| Security review of the new command surface | by a separate reviewer agent: 3 HIGH + 7 MEDIUM + LOWs found, **all fixed** except M5 (below) |
+
+Recording: `docs/media/v2-demo.mp4` (GIF: `docs/media/v2-clay-and-powers.gif`).
+
+### Security review (v2)
+No critical issues; no path from command arguments to a shell, path or exec; the phone side is
+XSS-clean. Fixed: slow uploads or clipboard calls could freeze the companion window (uploads are now
+buffered with a 30 s deadline before any lock; PC switches run off the UI thread; waits are bounded);
+test flags (`--auto-approve`, `--test-hooks`, dry-run, `--inbox`) only work in a loopback dry run, a
+fixed `--pair-code` on the LAN needs `PEEKPETS_TEST=1`, and auto-approvals are never saved;
+per-connection message budgets; no re-prompt for 5 min after "Don't allow", one dialog at a time;
+limits keyed by device, not connection; reconcile re-checks under the lock; forgetting a phone
+revokes every connection; inbox quota + free-space floor; Host-header allowlist (DNS rebinding);
+control characters stripped in the audit view; full paths for Windows tools; toasts never open files.
+**Accepted (M5):** quick Safari mode is plain HTTP on the LAN, so powers traffic (e.g. clipboard
+text) is visible to someone sniffing your Wi-Fi. The Powers screen says so; the installed app
+encrypts; the native app is plain local-network traffic too (same trust model as quick mode).
+
+### Not verified on a real iPhone (please check)
+1. **The native app on a device**: Sideloadly install, the local-network permission prompt, Bonjour
+   discovery via `NWBrowser`, haptics, keep-awake and notifications. Compiled in CI, never launched.
+2. **WebGL speed on iPhone.** Expected to be fine (few parts, simple shader, 2× cap, automatic
+   fallback), but only measured on a desktop GPU. Settings → Show link stats shows fps and look.
+3. **Media "now playing"** with your players (Spotify, browser, etc.): built on the Windows media
+   session; the automated tests used the dry-run backend. The media keys themselves are standard.
+4. **Mic mute** toggles the default *communications* microphone; apps with their own mute won't show it.
+5. **Temperature**: this PC exposes an ACPI thermal zone that reads ~77 °C constantly (probably not
+   the CPU). Throttling uses Windows' "% passive limit", which is the trustworthy signal.
+6. Everything in v1's list still applies (the Wi-Fi hop, iOS Safari quirks).
+
+### Open decisions for you
+1. **Apple account**: free Apple ID + Sideloadly (re-install weekly), or $99/year for TestFlight
+   (secrets listed in NATIVE-APP.md; nothing set). Push notifications while the app is closed also
+   need the paid account + a tiny relay (not built).
+2. **Which powers to keep**: after a week, look at the Labs scorecard and tell me.
+3. **AI / voice** (from v1's list, still open): ambient comments vs. helper vs. pure character, local
+   vs. Claude API, voice in/out. Powers now give the pet real things to talk *about* (focus done, disk
+   low, render finished), which makes the "helper" route much more natural.
+4. **AI texture maps** for the clay look (credits; proposal above).
+
+### Recommended next steps
+1. Install the native app (Sideloadly, ~10 min), try "Find your PC", then turn all powers on for a week.
+2. Tune break intervals and health thresholds from real use (each is one constant).
+3. If you go paid: run the TestFlight workflow, then consider APNs push via a Cloudflare Worker.
+4. A desktop pet on the PC (still a nice idea), or the AI helper using power events as context.
+
+---
+
+## v1 (2026-10-03)
 
 *Built 2026-10-03 in one autonomous session, from the brief, live-test plan and four visual
 sheets in `Desktop\Phone Pet Prototype`.*

@@ -49,6 +49,8 @@ public partial class App : Application
         approvals.Inner = new Ui.ApprovalPrompt(window);
         MainWindow = window;
         if (args.ContainsKey("minimized")) window.WindowState = WindowState.Minimized;
+        if (args.TryGetValue("tab", out var tab)) window.SelectTab(tab); // e.g. --tab powers (docs screenshots)
+        if (args.TryGetValue("snapshot", out var snapshotPath)) window.SnapshotAndExit(snapshotPath); // docs screenshots
         window.Show();
 
         try

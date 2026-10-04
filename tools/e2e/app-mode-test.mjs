@@ -37,8 +37,8 @@ await page.waitForFunction(async () => {
   const reg = await navigator.serviceWorker.getRegistration();
   if (!reg?.active) return false;
   const cache = await caches.open('peekpets-app');
-  return Boolean(await cache.match('/__peekpets_version'));
-}, null, { timeout: 20000, polling: 500 });
+  return Boolean(await cache.match('/__peekpets_version')) && (await cache.keys()).length > 30;
+}, null, { timeout: 30000, polling: 500 });
 const cached = await page.evaluate(async () => (await (await caches.open('peekpets-app')).keys()).length);
 check('service worker cached the app', cached > 30, `${cached} files`);
 await page.screenshot({ path: join(OUT, '1-secure-connected.png') });
