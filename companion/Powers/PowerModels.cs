@@ -138,6 +138,11 @@ public sealed class PowerPrefs
     public Dictionary<string, bool> PhoneOn { get; set; } = new();
     /// <summary>deviceId → approved "power.command" names.</summary>
     public Dictionary<string, List<string>> Approved { get; set; } = new();
+    /// <summary>
+    /// Paired phones run commands without the first-use "Allow?" dialog (sensitive ones,
+    /// like reading the clipboard, still ask). On by default; switch off in the Powers tab.
+    /// </summary>
+    public bool AutoAllow { get; set; } = true;
     public Dictionary<string, PowerScore> Scores { get; set; } = new();
     public List<Favorite> Favorites { get; set; } = [];
     /// <summary>"power.name" → JSON value.</summary>

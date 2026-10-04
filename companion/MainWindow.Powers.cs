@@ -64,7 +64,10 @@ public partial class MainWindow
         }
         RefreshFavorites();
         var approved = _powers.ApprovedCommands();
-        ApprovedText.Text = approved.Count == 0 ? "None yet. Phones ask the first time they use a command." : string.Join("  ·  ", approved);
+        if (AutoAllowBox.IsChecked != _powers.AutoAllow) AutoAllowBox.IsChecked = _powers.AutoAllow;
+        ApprovedText.Text = approved.Count == 0
+            ? (_powers.AutoAllow ? "Auto-allow is on: paired phones don't need approvals." : "None yet. Phones ask the first time they use a command.")
+            : string.Join("  ·  ", approved);
         RefreshScorecard();
         var audit = _powers.Audit.Entries.Take(30).ToList();
         AuditText.Text = audit.Count == 0 ? "No commands yet." : string.Join("\n", audit);
@@ -187,6 +190,8 @@ public partial class MainWindow
         foreach (TabItem tab in Tabs.Items)
             if (tab.Header?.ToString()?.StartsWith(name, StringComparison.OrdinalIgnoreCase) == true) Tabs.SelectedItem = tab;
     }
+
+    private void AutoAllow_Click(object sender, RoutedEventArgs e) => _powers.SetAutoAllow(AutoAllowBox.IsChecked == true);
 
     private void ResetApprovals_Click(object sender, RoutedEventArgs e) => _powers.ResetApprovals();
 

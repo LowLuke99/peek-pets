@@ -115,12 +115,21 @@ public sealed class ToastWindow : Window
     }
 }
 
-/// <summary>Expanding rings around the mouse pointer so you can spot it ("where's my cursor?").</summary>
-public sealed class CursorRing : Window
+/// <summary>
+/// "Where's my cursor?": a spotlight that rides along with the mouse pointer for a few
+/// seconds. Rings sweep inward onto the pointer, a soft glow pulses, a dashed orbit with
+/// sparkles spins, and a tiny Mochi pops up next to it. Click-through; follows the
+/// cursor every frame (physical pixels, any monitor/DPI).
+/// </summary>
+public sealed class CursorSpotlight : Window
 {
-    private const double Size = 360;
+    private const double Size = 440;
+    private const double Center = Size / 2;
+    private static readonly TimeSpan Lifetime = TimeSpan.FromMilliseconds(3600);
+    private IntPtr _hwnd;
+    private (int X, int Y) _last = (int.MinValue, int.MinValue);
 
-    public CursorRing()
+    public CursorSpotlight()
     {
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -130,36 +139,137 @@ public sealed class CursorRing : Window
         ShowActivated = false;
         Width = Height = Size;
         IsHitTestVisible = false;
-        var canvas = new Canvas();
+        var canvas = new Canvas { Width = Size, Height = Size };
         Content = canvas;
-        for (int i = 0; i < 3; i++)
-        {
-            var ring = new Ellipse { Width = Size, Height = Size, Stroke = Palette.Coral, StrokeThickness = 10, RenderTransformOrigin = new Point(0.5, 0.5), Opacity = 0 };
-            var scale = new ScaleTransform(0.05, 0.05);
-            ring.RenderTransform = scale;
-            canvas.Children.Add(ring);
-            var begin = TimeSpan.FromMilliseconds(i * 260);
-            var grow = new DoubleAnimation(0.05, 1, TimeSpan.FromMilliseconds(900)) { BeginTime = begin, EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }, RepeatBehavior = new RepeatBehavior(2) };
-            var fade = new DoubleAnimationUsingKeyFrames { BeginTime = begin, RepeatBehavior = new RepeatBehavior(2) };
-            fade.KeyFrames.Add(new LinearDoubleKeyFrame(0.95, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(80))));
-            fade.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(900))));
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
-            ring.BeginAnimation(OpacityProperty, fade);
-        }
+
+        AddGlow(canvas);
+        for (int i = 0; i < 3; i++) AddInwardRing(canvas, i);
+        AddOrbit(canvas);
+        AddPeekingMochi(canvas);
+
+        // Whole effect: pop in, hold, then fade out.
+        Opacity = 0;
+        var life = new DoubleAnimationUsingKeyFrames();
+        life.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(160))));
+        life.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromTimeSpan(Lifetime - TimeSpan.FromMilliseconds(500))));
+        life.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(Lifetime), new QuadraticEase()));
+        life.Completed += (_, _) => Close();
+        BeginAnimation(OpacityProperty, life);
+
         SourceInitialized += (_, _) =>
         {
-            // Click-through, and centred on the cursor in physical pixels (any DPI).
-            var hwnd = new WindowInteropHelper(this).Handle;
-            SetWindowLong(hwnd, -20, GetWindowLong(hwnd, -20) | 0x20 | 0x80000 | 0x80);
-            Sensors.Win32.GetCursorPos(out var p);
-            var dpi = VisualTreeHelper.GetDpi(this);
-            int px = (int)(Size * dpi.DpiScaleX), py = (int)(Size * dpi.DpiScaleY);
-            SetWindowPos(hwnd, new IntPtr(-1), p.X - px / 2, p.Y - py / 2, px, py, 0x10);
+            _hwnd = new WindowInteropHelper(this).Handle;
+            SetWindowLong(_hwnd, -20, GetWindowLong(_hwnd, -20) | 0x20 | 0x80000 | 0x80); // click-through, layered, tool window
+            Follow();
         };
-        var close = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2400) };
-        close.Tick += (_, _) => { close.Stop(); Close(); };
-        close.Start();
+        CompositionTarget.Rendering += OnRender;
+        Closed += (_, _) => CompositionTarget.Rendering -= OnRender;
+    }
+
+    private void OnRender(object? sender, EventArgs e) => Follow();
+
+    /// <summary>Keeps the spotlight centred on the pointer (only moves when the pointer did).</summary>
+    private void Follow()
+    {
+        if (_hwnd == IntPtr.Zero || !Sensors.Win32.GetCursorPos(out var p) || (p.X, p.Y) == _last) return;
+        _last = (p.X, p.Y);
+        var dpi = VisualTreeHelper.GetDpi(this);
+        int w = (int)(Size * dpi.DpiScaleX), h = (int)(Size * dpi.DpiScaleY);
+        SetWindowPos(_hwnd, new IntPtr(-1), p.X - w / 2, p.Y - h / 2, w, h, 0x10 | 0x0400);
+    }
+
+    private static Color Coral => Color.FromRgb(0xF2, 0x73, 0x5F);
+
+    private static void AddGlow(Canvas canvas)
+    {
+        var brush = new RadialGradientBrush();
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(150, 0xFF, 0xD3, 0x6B), 0));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(90, 0xF2, 0x73, 0x5F), 0.35));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 0xF2, 0x73, 0x5F), 1));
+        var glow = new Ellipse { Width = 260, Height = 260, Fill = brush, RenderTransformOrigin = new Point(0.5, 0.5) };
+        Place(glow, 260);
+        var pulse = new ScaleTransform(1, 1);
+        glow.RenderTransform = pulse;
+        var beat = new DoubleAnimation(0.8, 1.12, TimeSpan.FromMilliseconds(420)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase() };
+        pulse.BeginAnimation(ScaleTransform.ScaleXProperty, beat);
+        pulse.BeginAnimation(ScaleTransform.ScaleYProperty, beat);
+        canvas.Children.Add(glow);
+    }
+
+    /// <summary>Big rings that sweep in onto the pointer, like a camera finding focus.</summary>
+    private static void AddInwardRing(Canvas canvas, int i)
+    {
+        var ring = new Ellipse { Width = Size - 20, Height = Size - 20, Stroke = new SolidColorBrush(Coral), StrokeThickness = 7, RenderTransformOrigin = new Point(0.5, 0.5), Opacity = 0 };
+        Place(ring, Size - 20);
+        var scale = new ScaleTransform(1, 1);
+        ring.RenderTransform = scale;
+        var begin = TimeSpan.FromMilliseconds(i * 230);
+        var shrink = new DoubleAnimation(1, 0.12, TimeSpan.FromMilliseconds(760)) { BeginTime = begin, EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }, RepeatBehavior = new RepeatBehavior(3) };
+        var fade = new DoubleAnimationUsingKeyFrames { BeginTime = begin, RepeatBehavior = new RepeatBehavior(3) };
+        fade.KeyFrames.Add(new LinearDoubleKeyFrame(0.9, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120))));
+        fade.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(760))));
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, shrink);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, shrink);
+        ring.BeginAnimation(OpacityProperty, fade);
+        canvas.Children.Add(ring);
+    }
+
+    /// <summary>A spinning dashed ring with four sparkles riding on it.</summary>
+    private static void AddOrbit(Canvas canvas)
+    {
+        const double d = 120;
+        var orbit = new Canvas { Width = d, Height = d, RenderTransformOrigin = new Point(0.5, 0.5) };
+        orbit.Children.Add(new Ellipse { Width = d, Height = d, Stroke = Brushes.White, StrokeThickness = 4, StrokeDashArray = [2.5, 2.5], StrokeDashCap = PenLineCap.Round, Opacity = 0.95 });
+        for (int k = 0; k < 4; k++)
+        {
+            var a = k * Math.PI / 2;
+            var star = Sparkle(18);
+            Canvas.SetLeft(star, d / 2 + Math.Cos(a) * d / 2 - 9);
+            Canvas.SetTop(star, d / 2 + Math.Sin(a) * d / 2 - 9);
+            orbit.Children.Add(star);
+        }
+        Place(orbit, d);
+        var spin = new RotateTransform();
+        orbit.RenderTransform = spin;
+        spin.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(0, 360, TimeSpan.FromMilliseconds(1600)) { RepeatBehavior = RepeatBehavior.Forever });
+        orbit.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = Coral, BlurRadius = 12, ShadowDepth = 0, Opacity = 0.9 };
+        canvas.Children.Add(orbit);
+    }
+
+    private static UIElement Sparkle(double s) => new System.Windows.Shapes.Path
+    {
+        Width = s, Height = s, Stretch = Stretch.Fill, Fill = new SolidColorBrush(Color.FromRgb(0xFF, 0xD3, 0x6B)),
+        Data = Geometry.Parse("M5,0 C5.6,3.4 6.6,4.4 10,5 C6.6,5.6 5.6,6.6 5,10 C4.4,6.6 3.4,5.6 0,5 C3.4,4.4 4.4,3.4 5,0 Z"),
+    };
+
+    /// <summary>A tiny Mochi pops up beside the pointer with a "here!" bubble.</summary>
+    private static void AddPeekingMochi(Canvas canvas)
+    {
+        var stack = new StackPanel { RenderTransformOrigin = new Point(0.5, 1) };
+        stack.Children.Add(new Border
+        {
+            Background = Brushes.White, CornerRadius = new CornerRadius(10), Padding = new Thickness(8, 2, 8, 3),
+            HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 3),
+            Child = new TextBlock { Text = "here!", FontWeight = FontWeights.Black, FontSize = 15, Foreground = Palette.Ink },
+            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 8, ShadowDepth = 1, Opacity = 0.25 },
+        });
+        stack.Children.Add(Palette.Mochi(56));
+        Canvas.SetLeft(stack, Center + 34);
+        Canvas.SetTop(stack, Center - 118);
+        var pop = new ScaleTransform(0, 0);
+        var bob = new TranslateTransform();
+        stack.RenderTransform = new TransformGroup { Children = { pop, bob } };
+        var grow = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(420)) { BeginTime = TimeSpan.FromMilliseconds(250), EasingFunction = new BackEase { Amplitude = 0.6 } };
+        pop.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
+        pop.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
+        bob.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, -6, TimeSpan.FromMilliseconds(380)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase() });
+        canvas.Children.Add(stack);
+    }
+
+    private static void Place(FrameworkElement e, double size)
+    {
+        Canvas.SetLeft(e, Center - size / 2);
+        Canvas.SetTop(e, Center - size / 2);
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr hwnd, int index);

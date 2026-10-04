@@ -72,7 +72,7 @@ public sealed class WindowsActions(Dispatcher ui) : ISystemActions
     private static string System32(string exe) => Path.Combine(Environment.SystemDirectory, exe);
     private static string Explorer => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
 
-    public void FindCursor() => ui.BeginInvoke(() => new Ui.CursorRing().Show());
+    public void FindCursor() => ui.BeginInvoke(() => new Ui.CursorSpotlight().Show());
 
     public void Open(OpenTarget target, string? selectPath = null)
     {

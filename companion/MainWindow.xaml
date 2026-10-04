@@ -193,6 +193,9 @@
                                 <Button Content="Reset approvals" Style="{StaticResource PillButton}" Padding="10,4" FontSize="12" Click="ResetApprovals_Click"/>
                             </StackPanel>
                         </Grid>
+                        <CheckBox x:Name="AutoAllowBox" Margin="0,2,0,8" Click="AutoAllow_Click" ToolTip="Paired phones run commands straight away. Reading the PC clipboard still asks.">
+                            <TextBlock Text="Auto-allow my paired phones (no Allow? pop-up; clipboard reads still ask)" TextWrapping="Wrap" FontSize="12.5"/>
+                        </CheckBox>
                         <TextBlock x:Name="ApprovedText" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}"/>
                     </StackPanel>
                 </Border>

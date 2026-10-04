@@ -194,7 +194,9 @@ public sealed class PowerHost : IDisposable
         if (!_limits.TryTake($"{caller.DeviceId}|{powerKey}.{command}", spec.PerMinute))
             return Deny(caller, powerKey, command, "rate_limited");
 
-        if (!IsApproved(caller.DeviceId, powerKey, command, spec.Sensitive))
+        if (!spec.Sensitive && AutoAllow && !IsApproved(caller.DeviceId, powerKey, command))
+            Audit.Add(new AuditEntry(_now(), caller.DeviceName, powerKey, command, "auto-allowed (paired phone)"));
+        else if (!IsApproved(caller.DeviceId, powerKey, command, spec.Sensitive))
         {
             var key = $"{caller.DeviceId}|{powerKey}.{command}";
             if (_deniedUntil.TryGetValue(key, out var until) && _now() < until) return Deny(caller, powerKey, command, "denied");
@@ -288,6 +290,16 @@ public sealed class PowerHost : IDisposable
 
     public IReadOnlyList<string> ApprovedCommands() =>
         _settings.Read(s => s.Powers.Approved.Values.SelectMany(v => v).Distinct().OrderBy(v => v).ToList());
+
+    /// <summary>Paired phones skip the first-use dialog for non-sensitive commands.</summary>
+    public bool AutoAllow => _settings.Read(s => s.Powers.AutoAllow);
+
+    public void SetAutoAllow(bool on)
+    {
+        _settings.Update(s => s.Powers.AutoAllow = on);
+        Log(on ? "Auto-allow on: paired phones no longer ask first" : "Auto-allow off: phones ask the first time");
+        Changed?.Invoke();
+    }
 
     public void ResetApprovals()
     {

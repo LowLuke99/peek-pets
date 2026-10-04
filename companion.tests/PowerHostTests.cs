@@ -52,9 +52,10 @@ public sealed class PowerHostTests : IDisposable
     private static readonly CommandCaller Phone = new("dev1", "Test iPhone", "s1");
     private static readonly JsonElement NoArgs = JsonDocument.Parse("{}").RootElement;
 
-    private (PowerHost Host, ProbePower Probe, FakeApprovals Approvals, List<object> Sent, CompanionSettings Settings) Make(bool approve = true)
+    private (PowerHost Host, ProbePower Probe, FakeApprovals Approvals, List<object> Sent, CompanionSettings Settings) Make(bool approve = true, bool autoAllow = false)
     {
         var settings = CompanionSettings.Load(Path.Combine(_dir, "companion.json"));
+        settings.Update(s => s.Powers.AutoAllow = autoAllow); // most tests exercise the approval dialog
         var probe = new ProbePower();
         var approvals = new FakeApprovals(approve);
         var host = new PowerHost(settings, [probe], new DryRunActions(), new FakeIdle(), approvals, new AuditLog(), () => _now);
@@ -91,6 +92,46 @@ public sealed class PowerHostTests : IDisposable
         Assert.Equal("not_allowed", (await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason);
         Assert.Equal(0, probe.Runs);
         Assert.Equal(4, host.Audit.Entries.Count);
+    }
+
+    [Fact]
+    public async Task Auto_allow_skips_the_dialog_for_paired_phones_but_sensitive_commands_still_ask()
+    {
+        var (host, probe, approvals, _, _) = Make(approve: true, autoAllow: true);
+        host.SetPhoneOn("probe", true);
+        bool pending = false;
+        var poke = await host.RunCommandAsync(Phone, "probe", "poke", NoArgs, () => pending = true);
+        Assert.True(poke.Ok);
+        Assert.False(pending);
+        Assert.Equal(0, approvals.Asked);
+        Assert.Contains(host.Audit.Entries, e => e.ToString().Contains("auto-allowed"));
+
+        var peek = await host.RunCommandAsync(Phone, "probe", "peek", NoArgs, () => pending = true);
+        Assert.True(peek.Ok);
+        Assert.True(pending);
+        Assert.Equal(1, approvals.Asked); // the clipboard-style command still asks
+    }
+
+    [Fact]
+    public async Task Auto_allow_still_refuses_forgotten_phones_and_respects_rate_limits()
+    {
+        var (host, probe, _, _, _) = Make(autoAllow: true);
+        host.SetPhoneOn("probe", true);
+        host.DeviceExists = _ => false;
+        Assert.Equal("not_paired", (await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason);
+        host.DeviceExists = _ => true;
+        for (int i = 0; i < 3; i++) Assert.True((await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Ok);
+        Assert.Equal("rate_limited", (await host.RunCommandAsync(Phone, "probe", "poke", NoArgs)).Reason);
+        Assert.Equal(3, probe.Runs);
+    }
+
+    [Fact]
+    public void Auto_allow_defaults_on_and_can_be_switched_off()
+    {
+        Assert.True(new PowerPrefs().AutoAllow);
+        var (host, _, _, _, _) = Make(autoAllow: true);
+        host.SetAutoAllow(false);
+        Assert.False(host.AutoAllow);
     }
 
     [Fact]

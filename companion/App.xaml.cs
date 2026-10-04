@@ -52,6 +52,7 @@ public partial class App : Application
         if (args.TryGetValue("tab", out var tab)) window.SelectTab(tab); // e.g. --tab powers (docs screenshots)
         if (args.TryGetValue("snapshot", out var snapshotPath)) window.SnapshotAndExit(snapshotPath); // docs screenshots
         window.Show();
+        if (args.ContainsKey("preview-spotlight")) new Ui.CursorSpotlight().Show(); // see the find-cursor effect without a phone
 
         try
         {
