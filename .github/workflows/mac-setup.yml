@@ -5,7 +5,7 @@ name: Mac setup check
 on:
   workflow_dispatch:
   push:
-    paths: ['tools/mac/**', 'Set up on Mac.command', '.github/workflows/mac-setup.yml']
+    paths: ['tools/mac/**', 'Set up on Mac.command', '.github/workflows/mac-setup.yml', 'app/ios/**']
 
 jobs:
   setup:
@@ -31,3 +31,11 @@ jobs:
           xcodebuild -project app/ios/App/App.xcodeproj -scheme App -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO build | tail -n 15
+      - name: App Store readiness (privacy manifest, icon without alpha, export compliance)
+        run: |
+          APP=build/Build/Products/Debug-iphonesimulator/App.app
+          test -f "$APP/PrivacyInfo.xcprivacy"
+          plutil -lint app/ios/App/App/PrivacyInfo.xcprivacy
+          sips -g hasAlpha app/ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png | grep -q 'hasAlpha: no'
+          /usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' "$APP/Info.plist" | grep -q false
+          echo "App Store readiness checks passed"
