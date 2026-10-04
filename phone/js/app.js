@@ -466,6 +466,7 @@ export class App {
     const top = this.headStage();
     if (hit.part === 'eye') {
       this.rig.winkEye(hit.side);
+      haptic('tap');
       this.react({ type: 'poke-eye' });
       this.particles.emit('bang', top.x + (hit.side === 'L' ? -0.2 : 0.2), top.y + 0.02, { speed: 0 });
       this.sfx.play('ouch');
