@@ -1,11 +1,10 @@
 /* Peek Pets — warm "soft clay" phone UI. Species set --bg-a/--bg-b/--accent. */
 
-@font-face {
-  font-family: 'Nunito';
-  src: url('../fonts/Nunito.ttf') format('truetype');
-  font-weight: 200 1000;
-  font-display: swap;
-}
+/* Static weights (not the variable font): some engines ignore variable weight axes. */
+@font-face { font-family: 'Nunito'; src: url('../fonts/nunito-600.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Nunito'; src: url('../fonts/nunito-700.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Nunito'; src: url('../fonts/nunito-800.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+@font-face { font-family: 'Nunito'; src: url('../fonts/nunito-900.woff2') format('woff2'); font-weight: 900; font-display: swap; }
 
 @property --bg-a { syntax: '<color>'; inherits: true; initial-value: #FFF3EC; }
 @property --bg-b { syntax: '<color>'; inherits: true; initial-value: #FFDCCD; }
@@ -194,8 +193,8 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 34px;
-  padding: 6px 14px 6px 12px;
+  min-height: 40px;
+  padding: 8px 16px 8px 14px;
   border: 0;
   border-radius: var(--radius-pill);
   background: var(--glass);
@@ -388,7 +387,8 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .seg button { border: 0; background: transparent; border-radius: 9px; padding: 6px 10px; font-weight: 800; font-size: 13px; color: var(--ink-soft); cursor: pointer; }
 .seg button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); }
 
-.btn { border: 0; border-radius: 16px; padding: 13px 18px; font-weight: 900; font-size: 16px; cursor: pointer; background: var(--accent); color: #fff; box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent); transition: transform 0.25s var(--ease-spring); }
+/* Accent darkened 28% toward deep brown: white text stays >= 4.5:1 on every pet palette. */
+.btn { border: 0; border-radius: 16px; padding: 13px 18px; font-weight: 900; font-size: 16px; cursor: pointer; background: color-mix(in srgb, var(--accent) 72%, #2A1410); color: #fff; box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent); transition: transform 0.25s var(--ease-spring); }
 .btn:active { transform: scale(0.96); }
 .btn--ghost { background: rgba(122, 59, 42, 0.08); color: var(--ink); box-shadow: none; }
 .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }

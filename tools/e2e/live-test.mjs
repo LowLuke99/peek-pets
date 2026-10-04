@@ -1,4 +1,4 @@
-// End-to-end live test: real companion exe + real Windows cursor + WebKit iPhone page.
+﻿// End-to-end live test: real companion exe + real Windows cursor + WebKit iPhone page.
 //   node live-test.mjs [webkit|chromium]   (writes out/live-<engine>/report.json, screenshots, video)
 // WebKit = Safari's engine (compatibility). On Windows it renders in software at
 // ~10 fps, so motion timing is only meaningful in the GPU-backed Chromium run.
@@ -100,7 +100,7 @@ try {
   report.metrics.virtualDesktop = { x: vx, y: vy, w: vw, h: vh };
 
   const browser = await (ENGINE === 'chromium' ? chromium : webkit).launch();
-  const context = await browser.newContext({ ...devices['iPhone 15'], recordVideo: { dir: OUT, size: { width: 393, height: 852 } } });
+  const context = await browser.newContext({ ...devices['iPhone 15'], recordVideo: { dir: OUT, size: devices['iPhone 15'].viewport } });
   await context.addInitScript(() => localStorage.setItem('peekpets.seenPair', 'true'));
   const page = await context.newPage();
   const errors = [];
@@ -133,7 +133,7 @@ try {
     await page.screenshot({ path: join(OUT, `02-look-${name}.png`) });
   }
 
-  // 3. Latency: real cursor move → sample arrives on phone → eyes settle
+  // 3. Latency: real cursor move â†’ sample arrives on phone â†’ eyes settle
   const moves = [];
   for (let i = 0; i < 40; i++) {
     const fx = i % 2 ? 0.1 + Math.random() * 0.25 : 0.65 + Math.random() * 0.25;
@@ -186,7 +186,7 @@ try {
   report.metrics.facts = facts;
   check('battery fact reported honestly', facts.battery && (facts.battery.available || facts.battery.reason === 'no_battery'), JSON.stringify(facts.battery));
 
-  // 6. Graceful close → phone notices immediately → restart → auto-reconnect via token
+  // 6. Graceful close â†’ phone notices immediately â†’ restart â†’ auto-reconnect via token
   t0 = Date.now();
   stopCompanion(false);
   await waitState(page, 'reconnecting', 8000);
@@ -204,7 +204,7 @@ try {
   await sleep(1500);
   await page.screenshot({ path: join(OUT, '05-reconnected.png') });
 
-  // 7. Crash (no goodbye) → heartbeat detects it
+  // 7. Crash (no goodbye) â†’ heartbeat detects it
   t0 = Date.now();
   stopCompanion(true);
   await waitState(page, 'reconnecting', 15000);
@@ -271,3 +271,4 @@ function lanIp() {
   }
   return '127.0.0.1';
 }
+

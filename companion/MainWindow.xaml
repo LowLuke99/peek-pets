@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Peek Pets Companion" Width="940" Height="660" MinWidth="760" MinHeight="560"
         Background="{StaticResource Paper}" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14"
-        Foreground="{StaticResource Ink}" WindowStartupLocation="CenterScreen">
+        Foreground="{StaticResource Ink}" WindowStartupLocation="CenterScreen" Icon="app.ico">
     <Grid Margin="22">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="340"/>

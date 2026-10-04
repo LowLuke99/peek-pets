@@ -17,7 +17,7 @@
     .sub { margin: 2px 0 0; color: var(--ink-soft); font-weight: 700; }
     ol { list-style: none; padding: 0; margin: 18px 0 0; counter-reset: step; display: grid; gap: 12px; }
     li { counter-increment: step; background: #fff; border-radius: 20px; padding: 16px 16px 16px 58px; position: relative; box-shadow: 0 4px 14px rgba(122, 59, 42, 0.06); font-weight: 700; line-height: 1.45; }
-    li::before { content: counter(step); position: absolute; left: 16px; top: 15px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 900; }
+    li::before { content: counter(step); position: absolute; left: 16px; top: 15px; width: 28px; height: 28px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 72%, #2A1410); color: #fff; display: grid; place-items: center; font-weight: 900; }
     li.done::before { content: '✓'; background: var(--good); }
     li small { display: block; color: var(--ink-soft); font-weight: 600; margin-top: 4px; }
     li .btn { margin-top: 10px; display: inline-block; text-decoration: none; }

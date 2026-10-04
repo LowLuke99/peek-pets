@@ -12,6 +12,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>0.1.0</Version>
     <Product>Peek Pets Companion</Product>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,6 +25,10 @@
   <ItemGroup>
     <Content Include="..\phone\**\*" LinkBase="wwwroot" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\tools\Allow-Phone-Access.ps1" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="app.ico" />
   </ItemGroup>
 
   <ItemGroup>
