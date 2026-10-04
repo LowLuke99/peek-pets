@@ -1,0 +1,21 @@
+# Peek Pets friends & chat. Deploy: `npx wrangler login` once, then `npm run deploy`.
+name = "peekpets-chat"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[[durable_objects.bindings]]
+name = "USERS"
+class_name = "User"
+
+[[durable_objects.bindings]]
+name = "DIRECTORY"
+class_name = "Directory"
+
+# SQLite-backed Durable Objects work on the free plan.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["User", "Directory"]
+
+[vars]
+# Shown on the privacy/support pages (Apple requires a contact). Fill in before going public.
+SUPPORT_EMAIL = ""

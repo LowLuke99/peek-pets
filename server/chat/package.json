@@ -1,0 +1,15 @@
+{
+  "name": "peekpets-chat",
+  "private": true,
+  "type": "module",
+  "description": "Friends & chat server for Peek Pets (Cloudflare Worker + Durable Objects).",
+  "scripts": {
+    "dev": "wrangler dev --port 8790 --local",
+    "deploy": "node scripts/deploy.mjs",
+    "test": "node --test test/*.test.mjs",
+    "e2e": "node test/e2e.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}
