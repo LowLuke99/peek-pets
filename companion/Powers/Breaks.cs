@@ -20,7 +20,7 @@ public sealed class BreakCoach(BreakConfig? config = null)
     private DateTime _day;
     private double _sinceEyes, _sinceWater, _maxIdleOnBreak;
     private DateTime? _lastStretch;
-    private bool _onBreak;
+    private bool _onBreak, _breakBeforeStart;
     private (string Kind, DateTime At)? _pending;
     private DateTime _snoozedUntil;
     private int _tired;
@@ -48,6 +48,7 @@ public sealed class BreakCoach(BreakConfig? config = null)
         double idleSec = idle.TotalSeconds;
         if (idleSec >= _c.BreakIdleSec)
         {
+            if (!_onBreak) _breakBeforeStart = dt == 0; // first reading: you were already away
             _onBreak = true;
             _maxIdleOnBreak = Math.Max(_maxIdleOnBreak, idleSec);
             if (_pending is not null) _pending = null; // walked away: that counts
@@ -57,12 +58,16 @@ public sealed class BreakCoach(BreakConfig? config = null)
             _onBreak = false;
             int minutes = (int)Math.Round(_maxIdleOnBreak / 60);
             _maxIdleOnBreak = 0;
-            BreaksToday++;
             bool hadStreak = StreakSec >= 10 * 60;
             StreakSec = 0;
             _sinceEyes = 0;
             if (minutes >= 10) _sinceWater = 0;
-            events.Add(new CoachEvent("break_done", new { minutes, wasLong = hadStreak }));
+            if (!_breakBeforeStart)
+            {
+                BreaksToday++;
+                events.Add(new CoachEvent("break_done", new { minutes, wasLong = hadStreak }));
+            }
+            _breakBeforeStart = false;
         }
 
         if (!_onBreak && idleSec < _c.ActiveIdleSec)

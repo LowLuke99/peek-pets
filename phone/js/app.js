@@ -23,8 +23,10 @@ import { Sfx } from './fx/sfx.js';
 import { pickLine } from './behavior/lines.js';
 import { attachInput } from './input.js';
 import { KeepAwake } from './awake.js';
+import { PowerGlue } from './powers/glue.js';
+import { powersSheet } from './ui/powersSheet.js';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 const BUBBLE_COOLDOWN_MS = 4500;
 const IMPORTANT_BUBBLES = new Set(['connect', 'disconnect', 'pc-closed', 'levelup', 'say']);
 
@@ -64,7 +66,11 @@ export class App {
       onAction: (a, btn) => this.action(a, btn),
       onStatusTap: () => this.openSheet(this.link.token ? 'pc' : 'pair'),
       onOpen: (kind) => this.openSheet(kind),
-      onSheetClosed: (kind) => { if (kind === 'pets') this.previews.clear(); },
+      onSheetClosed: (kind) => {
+        if (kind === 'pets') this.previews.clear();
+        this.sheetDispose?.();
+        this.sheetDispose = null;
+      },
     });
     this.link = new Link({
       store,
@@ -72,6 +78,7 @@ export class App {
       onCursor: (m, now) => this.onCursor(m, now),
       onMessage: (m) => this.onLinkMessage(m),
     });
+    this.glue = new PowerGlue(this);
     this.setSpecies(this.settings.pet, { quiet: true });
     this.applySettings();
     this.wireInput();
@@ -126,7 +133,8 @@ export class App {
     this.updateBall(dt, pose);
     this.ambientParticles(dt, pose);
     this.particles.update(dt);
-    this.renderer.draw(this.species, pose, this.speciesState, this.particles, this.ball, null);
+    const props = this.glue.frame(dt, wall);
+    this.renderer.draw(this.species, pose, this.speciesState, this.particles, this.ball, props);
     this.previews.update(dt, this.rig.gaze, this.emotion);
 
     if (this.ui.bubbleVisible) {
@@ -154,6 +162,7 @@ export class App {
       cursorFast: this.cursor.isFast(now),
       hour: new Date().getHours(),
       pcIdleSec: this.facts.activity?.idleSec ?? 0,
+      ...this.glue.moodContext(),
     };
   }
 
@@ -199,6 +208,7 @@ export class App {
     if (prev === 'connected' && state !== 'connected') {
       this.disconnectedAt = Date.now();
       this.cursor.reset();
+      this.glue.disconnected();
       this.react({ type: 'disconnect', closed: Boolean(info.closed) });
       this.sfx.play('bye');
     }
@@ -231,6 +241,7 @@ export class App {
   }
 
   onLinkMessage(m) {
+    if (this.glue.handle(m)) return;
     switch (m.t) {
       case 'click':
         if (this.emotion !== 'asleep' && Math.random() < 0.55) {
@@ -558,7 +569,15 @@ export class App {
     this.refreshStatus();
   }
 
-  openSheet(kind) {
+  openSheet(kind, focus) {
+    this.sheetDispose?.();
+    this.sheetDispose = null;
+    if (kind === 'powers') {
+      const sheet = powersSheet({ glue: this.glue, focus });
+      this.ui.openSheet('powers', 'Powers', sheet.el);
+      this.sheetDispose = sheet.dispose;
+      return;
+    }
     if (kind === 'pair') {
       this.ui.openSheet('pair', 'Pair with your PC', pairSheet({
         error: this.link.info.authError,

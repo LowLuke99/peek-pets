@@ -56,9 +56,35 @@ export function parseServerMessage(text) {
       return str(m.text, 200) && m.text.trim() ? { t: 'say', text: m.text.trim().slice(0, 80) } : null;
     case 'bye':
       return { t: 'bye', reason: str(m.reason, 40) ? m.reason : 'closed' };
+    case 'powers':
+      return Array.isArray(m.list) ? { t: 'powers', list: m.list.slice(0, 24).map(parsePowerEntry).filter(Boolean) } : null;
+    case 'power':
+      return str(m.key, 32) && str(m.ev, 32) ? { t: 'power', key: m.key, ev: m.ev, data: obj(m.data) } : null;
+    case 'power_state':
+      return str(m.key, 32) ? { t: 'power_state', key: m.key, state: obj(m.state) } : null;
+    case 'cmd_result':
+      return finite(m.id) ? { t: 'cmd_result', id: m.id, ok: m.ok === true, reason: str(m.reason, 40) ? m.reason : null, data: obj(m.data) } : null;
+    case 'cmd_pending':
+      return finite(m.id) ? { t: 'cmd_pending', id: m.id } : null;
     default:
       return null; // Unknown types are ignored so newer companions stay compatible.
   }
+}
+
+const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : null);
+
+function parsePowerEntry(p) {
+  if (!p || !str(p.key, 32) || !str(p.label, 80)) return null;
+  return {
+    key: p.key,
+    label: p.label,
+    description: str(p.description, 400) ? p.description : '',
+    allowed: p.allowed !== false,
+    on: p.on === true,
+    active: p.active === true,
+    commands: Array.isArray(p.commands) ? p.commands.filter((c) => c && str(c.name, 32)).slice(0, 16) : [],
+    state: obj(p.state),
+  };
 }
 
 export const msg = {
@@ -71,6 +97,9 @@ export const msg = {
   sub: (opts) => ({ t: 'sub', ...opts }),
   stats: (s) => ({ t: 'stats', rtt: s.rtt, fps: s.fps, lat: s.lat }),
   event: (name) => ({ t: 'event', name: String(name).slice(0, 32) }),
+  powerSet: (key, on) => ({ t: 'power_set', key: String(key).slice(0, 32), on: Boolean(on) }),
+  powerAck: (key, action, kind) => ({ t: 'power_ack', key, action, ...(kind ? { kind } : {}) }),
+  cmd: (id, power, name, args = {}) => ({ t: 'cmd', id, power, name, args }),
 };
 
 /** Normalizes a typed/scanned pairing code to the companion's alphabet. */

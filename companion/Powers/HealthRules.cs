@@ -30,7 +30,13 @@ public sealed class HealthRules
     public static string? DiskLevel(DriveReading d)
     {
         if (d.TotalGb < 8) return null; // tiny USB sticks / recovery partitions aren't worth worrying about
-        // Absolute space matters more than percent on big drives (5% of 2 TB is still 100 GB).
+        if (d.TotalGb < 64)
+        {
+            // Small drives: judge by percent (3 GB free of 15 is fine).
+            if (d.FreePct < 5) return "critical";
+            return d.FreePct < 10 ? "warn" : null;
+        }
+        // Big drives: absolute space matters more than percent (5% of 2 TB is still 100 GB).
         if (d.FreeGb < 5 || d.FreePct < 1.5) return "critical";
         if (d.FreeGb < 20 || d.FreePct < 5) return "warn";
         return null;

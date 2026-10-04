@@ -99,6 +99,15 @@ export function moodReduce(state, event, now) {
       return stimulate(withBubble({ ...maybeWake(state, now, true), reaction: react('happy', 1600, now) }, 'pc-back', now), now);
     case 'touch':
       return stimulate(maybeWake(state, now, true), now);
+    // Helpful powers: things happening on the PC.
+    case 'celebrate': // focus done, render finished, back from a break
+      return stimulate({ ...maybeWake(state, now, false), napping: false, asleepSince: null, reaction: react('joy', 2200, now) }, now);
+    case 'worry': // PC health alert
+      return stimulate({ ...maybeWake(state, now, true), reaction: react('worried', 2600, now) }, now);
+    case 'alert': // a timer went off
+      return stimulate({ ...maybeWake(state, now, false), napping: false, asleepSince: null, reaction: react('surprised', 450, now, { emotion: 'curious', ms: 1400 }) }, now);
+    case 'nudge': // break suggestion
+      return stimulate({ ...maybeWake(state, now, true), reaction: react('curious', 1500, now) }, now);
     default:
       return state;
   }
@@ -131,7 +140,8 @@ export function drowsiness(state, ctx, now) {
 /**
  * Which expression to show right now.
  * @param {{link?: string, disconnectedAt?: number|null, batteryLow?: boolean,
- *          cursorActive?: boolean, cursorFast?: boolean, hour?: number, pcIdleSec?: number}} ctx
+ *          cursorActive?: boolean, cursorFast?: boolean, hour?: number, pcIdleSec?: number,
+ *          focusing?: boolean, tired?: number}} ctx
  */
 export function currentEmotion(state, ctx, now) {
   if (state.reaction && now < state.reaction.until) return state.reaction.emotion;
@@ -140,6 +150,8 @@ export function currentEmotion(state, ctx, now) {
   if (d >= 0.62) return 'sleepy';
   if (ctx.link === 'reconnecting' && ctx.disconnectedAt != null && now - ctx.disconnectedAt < WAITING_FOR_MS) return 'waiting';
   if (ctx.batteryLow) return 'worried';
+  if (ctx.focusing) return 'focused';
+  if ((ctx.tired ?? 0) >= 1) return 'tired';
   if (ctx.cursorFast) return 'focused';
   if (ctx.cursorActive) return 'curious';
   return 'neutral';

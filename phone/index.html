@@ -37,6 +37,9 @@
       <div class="bond__bar"><i id="bondFill"></i></div>
       <span class="bond__level" id="bondLevel">Lv 1</span>
     </div>
+    <button id="powersBtn" class="icon-btn icon-btn--powers" type="button" aria-label="Powers: ways your pet can help on the PC">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.4 2.2 4.6 13.3c-.4.5 0 1.2.6 1.2h5.3l-1.3 7.1c-.1.7.8 1.1 1.2.5l8.8-11.1c.4-.5 0-1.2-.6-1.2h-5.3l1.3-7.1c.1-.7-.8-1.1-1.2-.5z"/></svg>
+    </button>
     <button id="settingsBtn" class="icon-btn" type="button" aria-label="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm8.4-2.6.1-.9-.1-.9 2-1.6-2-3.4-2.4.9a7 7 0 0 0-1.6-.9L16 3.5h-4l-.4 2.5a7 7 0 0 0-1.6.9l-2.4-.9-2 3.4 2 1.6-.1.9.1.9-2 1.6 2 3.4 2.4-.9c.5.4 1 .7 1.6.9l.4 2.5h4l.4-2.5c.6-.2 1.1-.5 1.6-.9l2.4.9 2-3.4z"/></svg>
     </button>
@@ -51,6 +54,9 @@
   </div>
 
   <div id="bubble" class="bubble" role="status" aria-live="polite" hidden></div>
+
+  <div id="tray" class="tray" aria-label="Running powers" hidden></div>
+  <section id="nudge" class="nudge" role="status" aria-live="polite" hidden></section>
 
   <nav class="dock" aria-label="Pet actions">
     <button class="dock__btn" type="button" data-action="play" aria-pressed="false">

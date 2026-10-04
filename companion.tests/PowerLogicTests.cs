@@ -59,6 +59,16 @@ public sealed class BreakCoachTests
     }
 
     [Fact]
+    public void Being_away_when_the_coach_starts_is_not_a_break_you_took()
+    {
+        var c = new BreakCoach();
+        var now = T0;
+        Run(c, ref now, 3, idleSec: 3600);
+        Assert.DoesNotContain(Run(c, ref now, 2, idleSec: 1), e => e.Ev == "break_done");
+        Assert.Equal(0, c.BreaksToday);
+    }
+
+    [Fact]
     public void Snooze_brings_the_nudge_back_later_and_skip_counts()
     {
         var c = new BreakCoach();
@@ -171,7 +181,8 @@ public sealed class HealthRulesTests
         var rules = new HealthRules();
         Assert.Empty(rules.Step(T0, Disk(200)));
         Assert.Empty(rules.Step(T0, Disk(1, total: 4)));
-        Assert.Empty(rules.Current);
+        Assert.Empty(rules.Step(T0, Disk(3.3, total: 15))); // 22% free on a small drive is fine
+        Assert.Equal("critical", Assert.Single(rules.Step(T0.AddMinutes(1), Disk(0.5, total: 15))).Level);
     }
 
     [Fact]

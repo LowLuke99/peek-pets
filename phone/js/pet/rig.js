@@ -5,6 +5,7 @@
 
 import { stepSpring, stepSpring2, clamp, smoothstep } from '../core/spring.js';
 import { NEUTRAL, expressionFor, blendExpression } from '../core/expressions.js';
+import { startAct, stopAct, actLevels, applyActs, farGaze } from './acts.js';
 
 const GAZE_OMEGA = { cursor: 44, touch: 40, toy: 38, idle: 30, sleepy: 10 };
 const LEAN = { omega: 8.5, zeta: 0.58 };
@@ -31,6 +32,23 @@ export class PetRig {
     this.dance = { start: -1, until: -1, bpm: 112 };
     this.purr = 0;
     this.emotion = 'neutral';
+    this.acts = {};              // running one-shot performances (see acts.js)
+    this.bop = false;            // nod along to music
+    this.bopPhase = 0;
+  }
+
+  /** Plays a performance: stretch, yawn, lookFar, wave, point, shake. */
+  perform(name, seconds) {
+    this.acts = startAct(this.acts, name, this.t, seconds);
+    if (name === 'stretch' || name === 'wave') this.hopUp(0.35);
+  }
+
+  stopAct(name) {
+    this.acts = stopAct(this.acts, name, this.t);
+  }
+
+  isActing(name) {
+    return Boolean(this.acts[name] && this.t < this.acts[name].until);
   }
 
   // ---- one-shot actions ------------------------------------------------------
@@ -88,12 +106,16 @@ export class PetRig {
     const sleepy = e.energy < 0.3;
 
     // Gaze: explicit target (cursor/touch/toy) or the idle "look around" brain.
-    const target = input.gazeTarget ?? this.idleGaze(input.emotion, calm);
+    // Looking far away (eye-break buddy) beats the cursor but not your finger.
+    const { levels: actLv, alive } = actLevels(this.acts, t);
+    this.acts = alive;
+    const farTarget = actLv.lookFar > 0.05 && input.source !== 'touch' ? farGaze(t, this.acts.lookFar.start) : null;
+    const target = farTarget ?? input.gazeTarget ?? this.idleGaze(input.emotion, calm);
     const source = input.gazeTarget ? input.source ?? 'cursor' : 'idle';
     const jump = Math.hypot(target.x - this.lastTarget.x, target.y - this.lastTarget.y);
     if (jump > 0.7 && t - this.lastBlink > 0.9 && this.rand() < 0.3) this.blinkNow();
     this.lastTarget = target;
-    const omega = sleepy ? GAZE_OMEGA.sleepy : GAZE_OMEGA[source] ?? GAZE_OMEGA.idle;
+    const omega = farTarget ? 6 : sleepy ? GAZE_OMEGA.sleepy : GAZE_OMEGA[source] ?? GAZE_OMEGA.idle;
     const micro = source === 'idle' ? this.microSaccade(calm) : { x: 0, y: 0 };
     this.gaze = stepSpring2(this.gaze, target.x + micro.x, target.y + micro.y, omega, 1, dt);
     this.lean = stepSpring2(this.lean, this.gaze.x * 0.9, this.gaze.y * 0.55, LEAN.omega, LEAN.zeta, dt);
@@ -127,6 +149,14 @@ export class PetRig {
       danceSquash = (ph < 0.15 ? (0.15 - ph) / 0.15 : 0) * 0.07 * fade * calm;
     }
 
+    // Bop along to music: a soft nod on the beat (~100 bpm).
+    let bopY = 0, bopRot = 0;
+    if (this.bop && !this.dancing && e.energy > 0.3) {
+      this.bopPhase += dt * (100 / 60);
+      bopY = -Math.abs(Math.sin(Math.PI * this.bopPhase)) * 0.022 * calm;
+      bopRot = Math.sin(Math.PI * this.bopPhase) * 0.035 * calm;
+    }
+
     // Breathing + idle sway
     const period = 2.8 + (1 - e.energy) * 2;
     const breath = Math.sin((2 * Math.PI * t) / period);
@@ -135,12 +165,12 @@ export class PetRig {
     const sq = this.squash.x * (input.reducedMotion ? 0.5 : 1) - danceSquash;
     const purrWiggle = this.purr * Math.sin(t * 38) * 0.012 * calm;
 
-    return {
+    return applyActs({
       t,
       emotion: input.emotion,
       x: this.lean.x * 0.045 * calm,
-      y: -this.hop.y + danceY + (1 - e.energy) * 0.012 + breath * 0.004,
-      rot: this.lean.x * 0.075 * calm + sway + danceRot + purrWiggle,
+      y: -this.hop.y + danceY + bopY + (1 - e.energy) * 0.012 + breath * 0.004,
+      rot: this.lean.x * 0.075 * calm + sway + danceRot + purrWiggle + bopRot,
       sx: 1 - sq * 0.6 - breath * 0.007 - airStretch * 0.4,
       sy: 1 + sq + breath * 0.013 + airStretch,
       hop: this.hop.y,
@@ -165,7 +195,9 @@ export class PetRig {
       dancing: this.dancing,
       speed: Math.hypot(this.lean.vx, this.lean.vy),
       calm,
-    };
+      reach: 0, far: 0, wave: 0, point: 0,
+      bop: this.bop,
+    }, actLv, t);
   }
 
   blinkAmount(t, timing) {

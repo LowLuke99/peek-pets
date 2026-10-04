@@ -34,6 +34,7 @@ export const EXPRESSIONS = Object.freeze({
   worried: preset({ open: 1.02, pupil: 1.08, tilt: -0.45, smile: -0.35, blush: 0.08, brow: -0.6, energy: 0.45 }),
   dizzy: preset({ dizzy: 1, smile: -0.05, mouthOpen: 0.32, blush: 0.3, energy: 0.6, brow: 0.3 }),
   wince: preset({ open: 0.85, lower: 0.2, tilt: -0.2, smile: -0.2, mouthO: 0.55, blush: 0.35, brow: -0.4, energy: 0.6 }),
+  tired: preset({ open: 0.68, lower: 0.14, pupil: 1.04, tilt: -0.08, smile: 0.12, blush: 0.18, brow: -0.2, energy: 0.28 }),
   proud: preset({ open: 0.82, lower: 0.32, smile: 0.9, mouthOpen: 0.15, blush: 0.4, brow: 0.5, sparkle: 0.4, energy: 0.8 }),
 });
 

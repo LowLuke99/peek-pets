@@ -2,7 +2,10 @@
 // transforms and hit-testing. Stage units: 1 unit ≈ pet body width, origin at the
 // pet's ground point, +y down.
 
+import { drawBodyProps, drawWorldProps, drawBackProps } from './props.js';
+
 const TAU = Math.PI * 2;
+const NO_CUES = Object.freeze({ hand: null, head: null });
 
 export class Renderer {
   constructor(canvas) {
@@ -78,7 +81,8 @@ export class Renderer {
     return { part: 'body' };
   }
 
-  draw(species, pose, speciesState, particles, toys, ambient) {
+  /** @param {{cues?: object, info?: object}} [props] what the helpful powers want the pet to hold/wear */
+  draw(species, pose, speciesState, particles, toys, props = null) {
     const { ctx, dpr, S } = this;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -87,8 +91,8 @@ export class Renderer {
     if (species.grounded) drawPedestal(ctx, species.palette.pedestal);
     drawShadow(ctx, species, pose);
 
+    const cues = props?.cues ?? NO_CUES;
     ctx.save();
-    if (ambient?.dim) ctx.globalAlpha = 1; // dimming is a CSS overlay; keep pet crisp
     if (species.grounded) {
       ctx.translate(pose.x, pose.y);
       ctx.rotate(pose.rot);
@@ -99,9 +103,12 @@ export class Renderer {
       ctx.rotate(pose.rot);
       ctx.scale(pose.sx, pose.sy);
     }
+    drawBackProps(ctx, species, pose, cues);
     species.draw(ctx, pose, speciesState);
+    drawBodyProps(ctx, species, pose, cues, props?.info);
     ctx.restore();
 
+    drawWorldProps(ctx, species, pose, cues, props?.info);
     toys?.draw(ctx);
     particles.draw(ctx);
   }

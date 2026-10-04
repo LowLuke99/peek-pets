@@ -94,3 +94,16 @@ test('reducer is pure', () => {
   assert.equal(m.reaction, null);
   assert.equal(moodReduce(m, { type: 'unknown' }, T0), m);
 });
+
+test('helpful powers: focus and tiredness shape the resting mood', async () => {
+  const { initialMood, currentEmotion, moodReduce } = await import('../../phone/js/core/mood.js');
+  const now = 1_000_000;
+  const s = initialMood(now);
+  assert.equal(currentEmotion(s, { focusing: true, hour: 12 }, now + 1000), 'focused');
+  assert.equal(currentEmotion(s, { tired: 2, hour: 12 }, now + 1000), 'tired');
+  assert.equal(currentEmotion(s, { tired: 0, hour: 12 }, now + 1000), 'neutral');
+  assert.equal(currentEmotion(moodReduce(s, { type: 'celebrate' }, now), { tired: 2 }, now + 10), 'joy');
+  assert.equal(currentEmotion(moodReduce(s, { type: 'worry' }, now), {}, now + 10), 'worried');
+  const napping = moodReduce(s, { type: 'nap', on: true }, now);
+  assert.equal(moodReduce(napping, { type: 'alert' }, now + 5).napping, false, 'a timer wakes it');
+});

@@ -30,6 +30,7 @@ export class UI {
     this.chip.addEventListener('click', () => handlers.onStatusTap());
     $('#settingsBtn').addEventListener('click', () => handlers.onOpen('settings'));
     $('#petBtn').addEventListener('click', () => handlers.onOpen('pets'));
+    $('#powersBtn').addEventListener('click', () => handlers.onOpen('powers'));
     $('#sheetClose').addEventListener('click', () => this.closeSheet());
     this.scrim.addEventListener('click', () => this.closeSheet());
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.closeSheet(); });

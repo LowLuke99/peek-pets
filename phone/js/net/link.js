@@ -49,6 +49,12 @@ export class Link {
   }
 
   get token() { return this.store.get('token'); }
+
+  /** http(s)://host:port of the PC (for uploads), derived from the socket address. */
+  get httpBase() {
+    const u = new URL(this.url);
+    return `${u.protocol === 'wss:' ? 'https:' : 'http:'}//${u.host}`;
+  }
   get canConnect() { return Boolean(this.token || this.pendingCode); }
 
   start() {
