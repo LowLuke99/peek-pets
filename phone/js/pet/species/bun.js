@@ -15,7 +15,6 @@ export const bun = {
   id: 'bun',
   name: 'Bun',
   blurb: 'A marshmallow bunny with very floppy ears.',
-  isNew: true,
   palette: { bgA: '#FFF6F2', bgB: '#F9DCE0', accent: '#E8789A', pedestal: '#FBE4E6' },
   grounded: true,
   groundY: 0.36,

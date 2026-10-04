@@ -42,7 +42,6 @@ export const ember = {
   id: 'ember',
   name: 'Ember',
   blurb: 'A cozy flame sprite. Brighter when happy.',
-  isNew: true,
   palette: { bgA: '#FFF5E8', bgB: '#FFD9B0', accent: '#F28C28', pedestal: '#FFE4C4' },
   grounded: false,
   floatY: 0.4,

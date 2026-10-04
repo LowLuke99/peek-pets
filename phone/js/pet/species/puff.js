@@ -24,7 +24,6 @@ export const puff = {
   id: 'puff',
   name: 'Puff',
   blurb: 'A drowsy cloud whose weather is its mood.',
-  isNew: true,
   palette: { bgA: '#F3F4FF', bgB: '#D6DAF7', accent: '#7C7FE0', pedestal: '#E3E5FA' },
   grounded: false,
   floatY: 0.5,

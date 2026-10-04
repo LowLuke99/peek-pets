@@ -1,13 +1,14 @@
 // Renders every pet in a few emotions (iPhone 15 viewport) and tiles them into one
 // contact sheet:
-//   node gallery.mjs <baseUrl> <outDir> [emotions=neutral,joy] [look=clay|classic] [engine=chromium|webkit]
+//   node gallery.mjs <baseUrl> <outDir> [emotions=neutral,joy] [look=clay|classic] [engine=chromium|webkit] [only=id,id]
 // Chromium headless renders WebGL in software (slow but exact), which is fine for stills.
 import { chromium, webkit, devices } from 'playwright';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const [base, outDir, emotionArg = 'neutral,joy', look = 'clay', engine = look === 'clay' ? 'chromium' : 'webkit'] = process.argv.slice(2);
+const [base, outDir, emotionArg = 'neutral,joy', look = 'clay', engineArg, onlyArg] = process.argv.slice(2);
+const engine = engineArg || (look === 'clay' ? 'chromium' : 'webkit');
 const emotions = emotionArg.split(',');
 mkdirSync(outDir, { recursive: true });
 
@@ -25,7 +26,8 @@ await page.goto(base);
 await page.waitForFunction(() => window.peek?.pose);
 const actualLook = await page.evaluate(() => window.peek.look);
 
-const species = await page.evaluate(async () => (await import('./js/pet/species/index.js')).SPECIES.map((s) => s.id));
+const species = (await page.evaluate(async () => (await import('./js/pet/species/index.js')).SPECIES.map((s) => s.id)))
+  .filter((id) => !onlyArg || onlyArg.split(',').includes(id));
 const files = [];
 for (const id of species) {
   for (const emotion of emotions) {

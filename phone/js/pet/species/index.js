@@ -10,8 +10,12 @@ import { sprig } from './sprig.js';
 import { ember } from './ember.js';
 import { puff } from './puff.js';
 import { bun } from './bun.js';
+import { inky } from './inky.js';
+import { pebble } from './pebble.js';
+import { lumi } from './lumi.js';
+import { opal } from './opal.js';
 
-export const SPECIES = [mochi, pip, nimbus, plum, sprig, ember, puff, bun];
+export const SPECIES = [mochi, pip, nimbus, plum, sprig, ember, puff, bun, inky, pebble, lumi, opal];
 
 export function getSpecies(id) {
   return SPECIES.find((s) => s.id === id) ?? SPECIES[0];

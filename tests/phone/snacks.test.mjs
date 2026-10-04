@@ -6,7 +6,7 @@ import { SNACKS, FULL_AFTER, FULL_WINDOW_MS, favouriteOf, snackOutcome, eatSnack
 const MIN = 60_000;
 
 test('every pet has a favourite from the menu', () => {
-  for (const pet of ['mochi', 'pip', 'nimbus', 'plum', 'sprig', 'ember', 'puff', 'bun']) {
+  for (const pet of ['mochi', 'pip', 'nimbus', 'plum', 'sprig', 'ember', 'puff', 'bun', 'inky', 'pebble', 'lumi', 'opal']) {
     assert.ok(snackById(favouriteOf(pet)), pet);
   }
   assert.equal(favouriteOf('unknown'), null);

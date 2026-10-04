@@ -19,6 +19,10 @@ const FAVOURITES = Object.freeze({
   ember: 'chili',
   puff: 'icecream',
   bun: 'berry',
+  inky: 'icecream',
+  pebble: 'onigiri',
+  lumi: 'berry',
+  opal: 'cookie',
 });
 
 export const FULL_AFTER = 4;
