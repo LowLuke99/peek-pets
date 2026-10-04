@@ -153,8 +153,12 @@ export class Link {
       case 'pong':
         return this.handlePong(m, now);
       case 'bye':
+        // The companion is quitting on purpose: show it right away instead of
+        // waiting for the socket to time out.
         this.byeReceived = true;
-        break;
+        this.close();
+        this.onClosed();
+        return;
       case 'sharing':
         this.info = { ...this.info, shared: m.shared, facts: { ...this.info.facts, ...m.facts } };
         break;

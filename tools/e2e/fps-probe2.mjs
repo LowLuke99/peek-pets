@@ -1,0 +1,23 @@
+import { webkit, devices } from 'playwright';
+const url = process.argv[2];
+const b = await webkit.launch();
+const c = await b.newContext({ ...devices['iPhone 15'] });
+const p = await c.newPage();
+await p.goto(url);
+await p.waitForTimeout(1200);
+const measure = () => p.evaluate(() => new Promise((res) => {
+  let n = 0; const t0 = performance.now();
+  const f = (t) => { n++; if (t - t0 < 2000) requestAnimationFrame(f); else res(+(n / ((t - t0) / 1000)).toFixed(1)); };
+  requestAnimationFrame(f);
+}));
+console.log('full page', await measure());
+await p.addStyleTag({ content: '.scene__blob{display:none!important}' });
+console.log('no blur blobs', await p.evaluate(() => 0) || await measure());
+await p.addStyleTag({ content: '*{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}' });
+console.log('no backdrop-filter', await measure());
+await p.evaluate(() => { document.querySelector('#stage').style.display = 'none'; });
+console.log('no canvas', await measure());
+await p.goto('about:blank');
+await p.setContent('<div>x</div>');
+console.log('blank page', await measure());
+await b.close();

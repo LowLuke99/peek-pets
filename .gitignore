@@ -6,3 +6,5 @@ tools/e2e/test-results/
 dist/
 *.user
 .vs/
+companion.tests/TestResults/
+tools/e2e/out-*.log

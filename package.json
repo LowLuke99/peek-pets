@@ -1,0 +1,14 @@
+﻿{
+  "name": "peek-pets",
+  "private": true,
+  "type": "module",
+  "description": "A phone pet that watches your PC cursor. Phone app in phone/, Windows companion in companion/.",
+  "scripts": {
+    "test": "node --test tests/phone/*.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage tests/phone/*.test.mjs",
+    "test:companion": "dotnet test companion.tests",
+    "e2e": "node tools/e2e/live-test.mjs",
+    "gallery": "node tools/e2e/gallery.mjs http://localhost:8787/ tools/e2e/out/gallery neutral,joy,sleepy"
+  }
+}
+

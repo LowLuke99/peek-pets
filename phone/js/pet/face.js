@@ -28,58 +28,131 @@ function gazeOffset(pose, f, r) {
   return { x: pose.gaze.x * reach, y: pose.gaze.y * reach * 0.82 };
 }
 
+/**
+ * Eyelid geometry. Lids are not painted on top of the eye: the eye is *clipped* to
+ * the open region between the lid edges, so whatever is behind (any gradient body,
+ * a recessed face plate, a visor) shows through when the eye closes.
+ * One continuous curve family covers wide → normal → sleepy → closed "‿".
+ */
+function lidGeometry(pose, cx, cy, r, side, open) {
+  const o = clamp(open, 0, 1);
+  const lower = clamp(pose.lower, 0, 1);
+  const tilt = pose.tilt;
+  const inner = -side; // inner corner faces the nose
+  const topMid = lerp(cy + r * 0.5, cy - r * 1.06, o);
+  const curve = r * (0.22 + 0.32 * o) * (1 - Math.abs(tilt) * 0.4); // droopy lids stay round, never flat
+  const tiltDy = tilt * r * 0.55;
+  const botMid = Math.max(topMid + r * 0.02, cy + r * 1.06 - lower * r * 0.62 - (1 - o) * r * 0.52);
+  const botCurve = r * (0.08 + 0.36 * lower);
+  return {
+    o, inner,
+    xi: cx + inner * r * 1.15, xo: cx - inner * r * 1.15,
+    // Quadratic through the corners with its midpoint at topMid / botMid.
+    topInner: topMid - curve + tiltDy, topOuter: topMid - curve - tiltDy, topCtrl: topMid + curve,
+    botCorner: botMid + botCurve, botCtrl: botMid - botCurve,
+    closed: o < 0.035,
+  };
+}
+
+function clipOpenRegion(ctx, g) {
+  ctx.beginPath();
+  ctx.moveTo(g.xi, g.topInner);
+  ctx.quadraticCurveTo((g.xi + g.xo) / 2, g.topCtrl, g.xo, g.topOuter);
+  ctx.lineTo(g.xo, g.botCorner);
+  ctx.quadraticCurveTo((g.xi + g.xo) / 2, g.botCtrl, g.xi, g.botCorner);
+  ctx.closePath();
+  ctx.clip();
+}
+
+/** Lash line along the upper lid: crisp edge while closing, the "‿" when asleep. */
+function drawLashLine(ctx, pose, f, g, r) {
+  const alpha = smoothstep(0.85, 0.45, g.o) * (f.lidLine ?? 0.85) * (1 - smoothstep(0.15, 0.55, pose.happy));
+  if (alpha < 0.01) return;
+  const k = 0.82; // keep the line inside the eye's width
+  const mx = (g.xi + g.xo) / 2;
+  const x0 = mx + (g.xi - mx) * k, x1 = mx + (g.xo - mx) * k;
+  const y0 = g.topInner + (g.topCtrl - g.topInner) * (1 - k) * 0.9;
+  const y1 = g.topOuter + (g.topCtrl - g.topOuter) * (1 - k) * 0.9;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = f.ink;
+  ctx.lineWidth = f.r * (0.08 + 0.05 * (1 - g.o)); // thin while drowsy, bolder when shut
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.quadraticCurveTo(mx, g.topCtrl, x1, y1);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawHalo(ctx, f, x, y, r0, r1) {
+  if (!f.halo) return;
+  const g = ctx.createRadialGradient(x, y, r0, x, y, r1);
+  g.addColorStop(0, f.halo);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r1, 0, TAU); ctx.fill();
+}
+
 function drawScleraEye(ctx, pose, f, cx, side, rawOpen) {
   const cy = f.y;
   const open = clamp(rawOpen * (1 - smoothstep(0.2, 0.75, pose.happy)), 0, 1.35);
   const wide = Math.max(0, open - 1);
   const r = f.r * (1 + wide * 0.32);
   const off = gazeOffset(pose, f, f.r);
+  const g = lidGeometry(pose, cx, cy, r, side, open);
+  drawHalo(ctx, f, cx, cy, r * 0.4, r * 1.9 * clamp(open + 0.2, 0, 1));
 
-  if (f.halo) {
-    const g = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.9);
-    g.addColorStop(0, f.halo);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(cx, cy, r * 1.9, 0, TAU); ctx.fill();
+  if (!g.closed) {
+    ctx.save();
+    clipOpenRegion(ctx, g);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU);
+    const sg = ctx.createLinearGradient(cx, cy - r, cx, cy + r);
+    sg.addColorStop(0, shade(f.sclera ?? '#ffffff', -0.09));
+    sg.addColorStop(0.4, f.sclera ?? '#ffffff');
+    ctx.fillStyle = sg;
+    ctx.fill();
+    ctx.clip();
+
+    // Iris + pupil, foreshortened as they rotate away from center.
+    const ir = f.r * (f.iris ?? 0.72) * pose.pupil;
+    const fx = 1 - 0.16 * Math.min(1, Math.abs(pose.gaze.x));
+    const fy = 1 - 0.1 * Math.min(1, Math.abs(pose.gaze.y));
+    const ix = cx + off.x, iy = cy + off.y;
+    const dizzy = pose.dizzy;
+    if (dizzy < 0.98) {
+      ctx.globalAlpha = 1 - dizzy;
+      const ig = ctx.createRadialGradient(ix, iy + ir * 0.35, ir * 0.1, ix, iy, ir);
+      ig.addColorStop(0, f.irisIn ?? '#6b3a2c');
+      ig.addColorStop(1, f.irisOut ?? '#2e1813');
+      ctx.fillStyle = ig;
+      ctx.beginPath(); ctx.ellipse(ix, iy, ir * fx, ir * fy, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = f.pupilColor ?? 'rgba(20,10,8,0.85)';
+      ctx.beginPath(); ctx.ellipse(ix, iy, ir * 0.5 * fx, ir * 0.5 * fy, 0, 0, TAU); ctx.fill();
+      drawHighlights(ctx, pose, cx + off.x * 0.6, cy + off.y * 0.6, ir, side);
+      ctx.globalAlpha = 1;
+    }
+    if (dizzy > 0.02) drawSpiral(ctx, cx, cy, r * 0.78, pose.t * 7 * side, f.ink, dizzy, f.r * 0.11);
+    // Soft shadow the upper lid casts onto the eyeball.
+    const shadowY = (g.topInner + g.topOuter) / 2;
+    const ls = ctx.createLinearGradient(cx, shadowY, cx, shadowY + r * 0.45);
+    ls.addColorStop(0, 'rgba(60,30,20,0.16)');
+    ls.addColorStop(1, 'rgba(60,30,20,0)');
+    ctx.fillStyle = ls;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    ctx.restore();
   }
 
-  ctx.save();
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU);
-  const sg = ctx.createLinearGradient(cx, cy - r, cx, cy + r);
-  sg.addColorStop(0, shade(f.sclera ?? '#ffffff', -0.07));
-  sg.addColorStop(0.35, f.sclera ?? '#ffffff');
-  ctx.fillStyle = sg;
-  ctx.fill();
-  ctx.clip();
-
-  // Iris + pupil, foreshortened as they rotate away from center.
-  const ir = f.r * (f.iris ?? 0.72) * pose.pupil;
-  const fx = 1 - 0.16 * Math.min(1, Math.abs(pose.gaze.x));
-  const fy = 1 - 0.1 * Math.min(1, Math.abs(pose.gaze.y));
-  const ix = cx + off.x, iy = cy + off.y;
-  const dizzy = pose.dizzy;
-  if (dizzy < 0.98) {
-    ctx.globalAlpha = 1 - dizzy;
-    const ig = ctx.createRadialGradient(ix, iy + ir * 0.35, ir * 0.1, ix, iy, ir);
-    ig.addColorStop(0, f.irisIn ?? '#6b3a2c');
-    ig.addColorStop(1, f.irisOut ?? '#2e1813');
-    ctx.fillStyle = ig;
-    ctx.beginPath(); ctx.ellipse(ix, iy, ir * fx, ir * fy, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = f.pupilColor ?? 'rgba(20,10,8,0.85)';
-    ctx.beginPath(); ctx.ellipse(ix, iy, ir * 0.5 * fx, ir * 0.5 * fy, 0, 0, TAU); ctx.fill();
-    drawHighlights(ctx, pose, cx + off.x * 0.6, cy + off.y * 0.6, ir, side);
-    ctx.globalAlpha = 1;
-  }
-  if (dizzy > 0.02) drawSpiral(ctx, cx, cy, r * 0.78, pose.t * 7 * side, f.ink, dizzy, f.r * 0.11);
-
-  drawLids(ctx, pose, f, cx, cy, r, side, open);
-  ctx.restore();
-
-  if (f.rim) {
+  // The socket rim belongs to an open eye: it fades out for ^ ^ eyes and deep sleep.
+  const rimAlpha = (1 - smoothstep(0.15, 0.6, pose.happy)) * (pose.emotion === 'asleep' ? smoothstep(0, 0.3, rawOpen) : 1);
+  if (f.rim && rimAlpha > 0.02) {
+    ctx.globalAlpha = rimAlpha;
     ctx.strokeStyle = f.rim;
     ctx.lineWidth = f.r * 0.07;
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 1;
   }
+  drawLashLine(ctx, pose, f, g, r);
 }
 
 function drawBeadEye(ctx, pose, f, cx, side, rawOpen) {
@@ -89,83 +162,26 @@ function drawBeadEye(ctx, pose, f, cx, side, rawOpen) {
   const ex = cx + off.x;
   const rx = f.r * 0.66 * (1 + Math.max(0, open - 1) * 0.25) * pose.pupil;
   const ry = f.r * 0.82 * (1 + Math.max(0, open - 1) * 0.3) * pose.pupil;
+  const g = lidGeometry(pose, ex, cy, ry, side, open);
+  drawHalo(ctx, f, ex, cy, ry * 0.3, ry * 2.1 * clamp(open + 0.2, 0, 1));
 
-  if (f.halo) {
-    const g = ctx.createRadialGradient(ex, cy, ry * 0.3, ex, cy, ry * 2.1);
-    g.addColorStop(0, f.halo);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(ex, cy, ry * 2.1, 0, TAU); ctx.fill();
-  }
-  ctx.save();
-  ctx.beginPath(); ctx.ellipse(ex, cy, rx, ry, 0, 0, TAU);
-  const bg = ctx.createRadialGradient(ex, cy + ry * 0.4, ry * 0.1, ex, cy, ry);
-  bg.addColorStop(0, f.irisIn ?? '#4a3040');
-  bg.addColorStop(1, f.irisOut ?? '#1f1420');
-  ctx.fillStyle = bg;
-  ctx.globalAlpha = 1 - pose.dizzy;
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  ctx.clip();
-  if (pose.dizzy < 0.98) {
+  if (!g.closed) {
+    ctx.save();
+    clipOpenRegion(ctx, g);
+    ctx.beginPath(); ctx.ellipse(ex, cy, rx, ry, 0, 0, TAU);
+    const bg = ctx.createRadialGradient(ex, cy + ry * 0.4, ry * 0.1, ex, cy, ry);
+    bg.addColorStop(0, f.irisIn ?? '#4a3040');
+    bg.addColorStop(1, f.irisOut ?? '#1f1420');
+    ctx.fillStyle = bg;
     ctx.globalAlpha = 1 - pose.dizzy;
-    drawHighlights(ctx, pose, ex, cy, Math.min(rx, ry) * 1.05, side);
+    ctx.fill();
+    ctx.clip();
+    if (pose.dizzy < 0.98) drawHighlights(ctx, pose, ex, cy, Math.min(rx, ry) * 1.05, side);
     ctx.globalAlpha = 1;
+    ctx.restore();
   }
-  drawLids(ctx, pose, f, ex, cy, ry, side, open);
-  ctx.restore();
   if (pose.dizzy > 0.02) drawSpiral(ctx, ex, cy, ry * 0.85, pose.t * 7 * side, f.ink, pose.dizzy, f.r * 0.11);
-}
-
-/** Skin-colored lids closing from above/below, with tilt for worried/determined. */
-function drawLids(ctx, pose, f, cx, cy, r, side, open) {
-  const o = clamp(open, 0, 1);
-  const lower = clamp(pose.lower, 0, 1);
-  const tilt = pose.tilt;
-  const inner = -side; // inner corner faces the nose
-  const yTop = lerp(cy + r * 0.52, cy - r * 1.04, o);
-  const yBot = cy + r * 1.04 - lower * r * 0.62 - (1 - o) * r * 0.5;
-  const tiltDy = tilt * r * 0.55;
-  const edgeInnerY = yTop + tiltDy;
-  const edgeOuterY = yTop - tiltDy;
-  const xi = cx + inner * (r + 2);
-  const xo = cx - inner * (r + 2);
-  // Lids wrap around the eyeball: a strongly curved edge reads friendly, a flat
-  // one reads bored. Curvature relaxes as the lid closes into the sleeping "‿".
-  const sag = r * (0.18 + 0.42 * o) * (1 - Math.abs(tilt) * 0.6);
-
-  ctx.fillStyle = f.skin;
-  if (yTop > cy - r * 1.02 || Math.abs(tilt) > 0.02) {
-    ctx.beginPath();
-    ctx.moveTo(xo, cy - r * 1.6);
-    ctx.lineTo(xi, cy - r * 1.6);
-    ctx.lineTo(xi, edgeInnerY);
-    ctx.quadraticCurveTo(cx, yTop + sag, xo, edgeOuterY);
-    ctx.closePath();
-    ctx.fill();
-    // Lash line gives the closing lid a crisp edge (and is the sleeping "‿" line).
-    const lineAlpha = smoothstep(0.82, 0.5, o) * (f.lidLine ?? 0.85) * (1 - smoothstep(0.15, 0.55, pose.happy));
-    if (lineAlpha > 0.01) {
-      ctx.strokeStyle = f.ink;
-      ctx.globalAlpha = lineAlpha;
-      ctx.lineWidth = f.r * 0.13;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(xi - inner * 2, edgeInnerY);
-      ctx.quadraticCurveTo(cx, yTop + sag, xo + inner * 2, edgeOuterY);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-  }
-  if (yBot < cy + r * 1.02) {
-    ctx.beginPath();
-    ctx.moveTo(cx - r - 2, cy + r * 1.6);
-    ctx.lineTo(cx + r + 2, cy + r * 1.6);
-    ctx.lineTo(cx + r + 2, yBot + r * 0.25);
-    ctx.quadraticCurveTo(cx, yBot - r * (0.15 + 0.45 * lower), cx - r - 2, yBot + r * 0.25);
-    ctx.closePath();
-    ctx.fill();
-  }
+  drawLashLine(ctx, pose, f, g, ry);
 }
 
 function drawHighlights(ctx, pose, x, y, ir, side) {

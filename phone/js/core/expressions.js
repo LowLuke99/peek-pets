@@ -28,7 +28,7 @@ export const EXPRESSIONS = Object.freeze({
   joy: preset({ happy: 1, smile: 1, mouthOpen: 0.78, blush: 0.75, energy: 1, brow: 0.45, sparkle: 0.6 }),
   love: preset({ happy: 1, smile: 0.85, mouthOpen: 0.22, blush: 1, energy: 0.75 }),
   surprised: preset({ open: 1.28, pupil: 0.74, smile: 0, mouthO: 0.95, blush: 0.15, brow: 1, energy: 0.9 }),
-  sleepy: preset({ open: 0.36, pupil: 1.04, tilt: -0.05, smile: 0.12, mouthO: 0.22, blush: 0.18, brow: -0.15, energy: 0.15 }),
+  sleepy: preset({ open: 0.32, lower: 0.12, pupil: 1.06, tilt: -0.04, smile: 0.15, mouthO: 0.24, blush: 0.22, brow: -0.1, energy: 0.15 }),
   asleep: preset({ open: 0, smile: 0.18, mouthO: 0.28, blush: 0.25, energy: 0.05, brow: -0.1 }),
   waiting: preset({ open: 0.97, pupil: 1.12, tilt: -0.22, smile: 0.02, blush: 0.1, brow: -0.25, energy: 0.4 }),
   worried: preset({ open: 1.02, pupil: 1.08, tilt: -0.45, smile: -0.35, blush: 0.08, brow: -0.6, energy: 0.45 }),

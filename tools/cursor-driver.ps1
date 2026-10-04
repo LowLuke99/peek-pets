@@ -2,6 +2,7 @@
 # pet's eyes follow. Reads commands from stdin, one per line:
 #   move <x> <y>      -> sets the cursor (physical px) and prints "moved <unix_ms>"
 #   corners           -> prints the virtual screen rect "rect <x> <y> <w> <h>"
+#   anything else -> "ok" (used as a ping)
 #   quit
 Add-Type -TypeDefinition @"
 using System; using System.Runtime.InteropServices;
@@ -27,6 +28,7 @@ while ($true) {
       $m = [CursorDriver]
       [Console]::Out.WriteLine("rect " + $m::GetSystemMetrics(76) + " " + $m::GetSystemMetrics(77) + " " + $m::GetSystemMetrics(78) + " " + $m::GetSystemMetrics(79))
     }
+    default { [Console]::Out.WriteLine("ok") }
   }
   [Console]::Out.Flush()
 }

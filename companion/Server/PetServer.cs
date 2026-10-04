@@ -295,8 +295,8 @@ public sealed class PetServer : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Broadcast(new { t = "bye", reason = "companion_closed" });
-        await Task.Delay(150); // let the bye flush
-        foreach (var s in Sessions) await s.CloseAsync("companion_closed");
+        await Task.Delay(150).ConfigureAwait(false); // let the bye flush
+        foreach (var s in Sessions) await s.CloseAsync("companion_closed").ConfigureAwait(false);
         _shutdown.Cancel();
         if (_app is not null)
         {

@@ -46,7 +46,8 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         // Tell phones we're leaving so they show "PC closed" instantly instead of timing out.
-        _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+        // Run off the UI thread: blocking the dispatcher on async work that captured it deadlocks.
+        if (_server is { } server) Task.Run(() => server.DisposeAsync().AsTask()).Wait(TimeSpan.FromSeconds(2));
         base.OnExit(e);
     }
 

@@ -72,10 +72,11 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .scene__blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(40px);
   opacity: 0.55;
-  background: color-mix(in srgb, var(--accent) 30%, white);
+  /* A soft gradient instead of filter: blur(): same look, no per-frame blur cost. */
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 30%, white), color-mix(in srgb, var(--accent) 30%, transparent) 55%, transparent);
   animation: drift 18s ease-in-out infinite alternate;
+  will-change: transform;
 }
 .scene__blob--a { width: 46vmax; height: 46vmax; left: -18vmax; top: 18vh; }
 .scene__blob--b { width: 38vmax; height: 38vmax; right: -14vmax; bottom: 6vh; animation-duration: 23s; opacity: 0.4; }

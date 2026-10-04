@@ -8,7 +8,9 @@ export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
-    this.maxDpr = 3;
+    // 2x is visually identical for smooth vector shapes and draws 55% fewer pixels
+    // than 3x on Pro iPhones: a real battery win for an always-on pet.
+    this.maxDpr = 2;
     this.resize();
   }
 
@@ -29,8 +31,8 @@ export class Renderer {
 
   /** Lower render resolution if frames are slow (keeps 60 fps on older iPhones). */
   degrade() {
-    if (this.maxDpr <= 1.5) return false;
-    this.maxDpr = Math.max(1.5, this.maxDpr - 0.75);
+    if (this.maxDpr <= 1.25) return false;
+    this.maxDpr = Math.max(1.25, this.maxDpr - 0.5);
     this.resize();
     return true;
   }
