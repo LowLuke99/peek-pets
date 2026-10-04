@@ -9,6 +9,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { makeCode, isFriendCode, GAME_IDS, validScore } from '../../../phone/js/core/chatRules.js';
 import { randomBytes, randomId, sha256 } from './crypto.js';
+import { BOT_ID, BOT_CODE } from './bot.js';
 
 const BOARD_MAX = 50;
 const REPORT_KEEP_MS = 90 * 86_400_000;
@@ -57,7 +58,7 @@ export class Directory extends DurableObject {
   async claim(id) {
     for (let i = 0; i < 20; i++) {
       const code = makeCode(randomBytes);
-      if (!(await this.ctx.storage.get(`code:${code}`))) {
+      if (code !== BOT_CODE && !(await this.ctx.storage.get(`code:${code}`))) {
         await this.ctx.storage.put(`code:${code}`, id);
         return ok({ code });
       }
@@ -67,6 +68,7 @@ export class Directory extends DurableObject {
 
   async lookup(code) {
     if (!isFriendCode(code ?? '')) return no(400, 'bad_code');
+    if (code === BOT_CODE) return ok({ id: BOT_ID });
     const id = await this.ctx.storage.get(`code:${code}`);
     return id ? ok({ id }) : no(404, 'unknown_code');
   }

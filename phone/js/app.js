@@ -31,7 +31,7 @@ import { PlayGlue } from './play/glue.js';
 import { GameHost } from './games/host.js';
 import { FriendsGlue } from './friends/glue.js';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 const BUBBLE_COOLDOWN_MS = 4500;
 const IMPORTANT_BUBBLES = new Set(['connect', 'disconnect', 'pc-closed', 'levelup', 'say']);
 

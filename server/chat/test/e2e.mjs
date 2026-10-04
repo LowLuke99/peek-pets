@@ -155,6 +155,19 @@ check('a moderator ban wipes the account: token dead, code gone, off the boards'
   && !(await call(cy.token, 'GET', '/v1/leaderboard?game=catch&scope=world')).data.board.some((e) => e.name === 'Dee'));
 check('…and its live socket is closed', deeLive.ws.readyState >= 2);
 
+// ---- Peek Bot
+const fay = await register('Fay', 'puff');
+const botReq = await call(fay.token, 'POST', '/v1/friends/request', { code: 'pee-kbt' });
+check('Peek Bot accepts straight away', botReq.data.status === 'friends' && botReq.data.name === 'Peek Bot', JSON.stringify(botReq.data));
+const bot = (await call(fay.token, 'GET', '/v1/me')).data.friends.find((f) => f.name === 'Peek Bot');
+await call(fay.token, 'POST', '/v1/messages', { to: bot.id, emote: 'hug' });
+let botThread = [];
+for (let i = 0; i < 30 && botThread.length < 2; i++) {
+  await new Promise((r) => setTimeout(r, 200));
+  botThread = (await call(fay.token, 'GET', `/v1/messages?friend=${bot.id}`)).data.messages;
+}
+check('Peek Bot answers a hug with a hug, after your message', botThread.length === 2 && botThread[1].from === bot.id && botThread[1].emote === 'hug', JSON.stringify(botThread.map((m) => [m.from === bot.id ? 'bot' : 'me', m.emote, m.text])));
+
 adaLive.ws.close();
 boLive.ws.close();
 const passed = results.filter(Boolean).length;

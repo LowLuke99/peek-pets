@@ -7,6 +7,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { validMessage, normalizeCode, validScore, GAME_IDS } from '../../../phone/js/core/chatRules.js';
 import { randomId, randomSecret, sha256, sameHash } from './crypto.js';
+import { BOT, BOT_ID, botReply, botMessage } from './bot.js';
 
 const THREAD_MAX = 200;
 const KEEP_MS = 30 * 86_400_000;
@@ -251,6 +252,7 @@ export class User extends DurableObject {
     const from = body.from ?? body.msg?.from;
     if (!ID.test(String(from))) return no(400, 'bad_from');
     if (path === '/x/ban') return this.ban();
+    if (body.to === BOT_ID) return this.bot(path, from, body);
     const me = await this.ctx.storage.get('profile');
     if (!me) return no(404, 'gone');
     const blocked = await this.get('blocked');
@@ -352,8 +354,14 @@ export class User extends DurableObject {
     }
   }
 
-  /** Daily sweep: drop messages older than 30 days even in threads nobody opens. */
+  /** Daily sweep: drop messages older than 30 days even in threads nobody opens. (Peek Bot: send queued replies.) */
   async alarm() {
+    if (await this.ctx.storage.get('isBot')) {
+      const pending = (await this.ctx.storage.get('botPending')) ?? [];
+      await this.ctx.storage.put('botPending', []);
+      await Promise.allSettled(pending.map((p) => this.callPeer(p.to, '/x/deliver', { from: BOT_ID, msg: botMessage(p.to, botReply(p.msg)), name: BOT.name, pet: BOT.pet })));
+      return;
+    }
     const friends = await this.get('friends');
     let left = 0;
     for (const id of Object.keys(friends)) {
@@ -396,7 +404,31 @@ export class User extends DurableObject {
 
   callPeer(id, path, body) {
     const stub = this.env.USERS.get(this.env.USERS.idFromName(id));
-    return stub.fetch(new Request(`https://user${path}`, { method: 'POST', body: JSON.stringify(body) }));
+    return stub.fetch(new Request(`https://user${path}`, { method: 'POST', body: JSON.stringify({ ...body, to: id }) }));
+  }
+
+  /** Peek Bot's side (this object is the bot): accept everyone, answer every message. */
+  async bot(path, from, body) {
+    switch (path) {
+      case '/x/request':
+        await this.update('friends', (f) => ({ ...f, [from]: { name: String(body.name ?? 'Friend').slice(0, 20), since: Date.now() } }));
+        return ok({ name: BOT.name, pet: BOT.pet, status: 'friends' });
+      case '/x/removed':
+        await this.update('friends', (f) => without(f, from));
+        return ok();
+      case '/x/deliver': {
+        if (!Object.hasOwn(await this.get('friends'), from)) return no(403, 'not_friends');
+        // Answer a moment later (via the alarm), after the sender's own message has landed.
+        const pending = (await this.ctx.storage.get('botPending')) ?? [];
+        await this.ctx.storage.put({ isBot: true, botPending: [...pending, { to: from, msg: body.msg ?? {} }].slice(-200) });
+        await this.ctx.storage.setAlarm(Date.now() + 700);
+        return ok();
+      }
+      case '/x/best':
+        return ok({ score: null });
+      default:
+        return ok();
+    }
   }
 
   async get(key) {

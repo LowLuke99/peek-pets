@@ -11,6 +11,7 @@ const APP = 'http://localhost:8787/';
 const OUT = join(import.meta.dirname, '..', '..', 'docs', 'appstore');
 const VIEW = { width: 440, height: 956 }; // × 3 = 1320 × 2868
 mkdirSync(OUT, { recursive: true });
+mkdirSync(join(import.meta.dirname, 'out'), { recursive: true });
 
 const SCENES = [
   {
@@ -103,7 +104,7 @@ for (const [i, scene] of SCENES.entries()) {
   await page.waitForTimeout(1800);
   if (scene.run) await scene.run(page);
   await page.waitForTimeout(500);
-  const file = join(OUT, `raw-${i + 1}.png`);
+  const file = join(import.meta.dirname, 'out', `raw-${i + 1}.png`);
   await page.screenshot({ path: file });
   shots.push({ file, caption: scene.caption });
   await page.context().close();

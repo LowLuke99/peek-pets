@@ -81,7 +81,7 @@ export function listView({ data, onAdd, onAccept, onDecline, onBlockRequest, onO
       h('button', { class: 'icon-btn icon-btn--small', type: 'button', 'aria-label': 'Friends settings', text: '⋯', onclick: onSettings }),
     ),
     data.friends.length === 0
-      ? h('p', { class: 'lead lead--small', text: data.outgoing.length ? `Waiting for ${data.outgoing.map((o) => o.name).join(', ')} to accept.` : 'No friends yet. Share your code, or add theirs above!' })
+      ? h('p', { class: 'lead lead--small', text: data.outgoing.length ? `Waiting for ${data.outgoing.map((o) => o.name).join(', ')} to accept.` : 'No friends yet. Share your code, or add theirs above! Want to try chat now? Add Peek Bot: PEE-KBT' })
       : null,
     ...data.friends.map((f) => h('button', { class: 'fr__row fr__row--btn', type: 'button', 'data-fr-friend': f.id, onclick: () => onOpen(f) },
       petIcon(f.pet),

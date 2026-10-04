@@ -14,3 +14,4 @@ art/**/*.png
 tools/video/clips/
 tools/video/frames/
 tools/video/out-pair/
+tools/appstore/out/
