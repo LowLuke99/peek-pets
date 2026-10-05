@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Peek Pets Companion for macOS: an Avalonia window over the shared core.
+       Run from a checkout: dotnet run, project companion.mac (or Start Peek Pets.command)
+       Package an .app:      tools/mac/package-companion.sh -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PeekPets.Companion.Mac</AssemblyName>
+    <RootNamespace>PeekPets.Companion.Mac</RootNamespace>
+    <Product>Peek Pets Companion</Product>
+    <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\companion.core\PeekPets.Companion.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The phone web app ships next to the executable as wwwroot (inside the .app bundle).
+       In a dev checkout the server prefers ../phone directly so edits show up after a refresh. -->
+  <ItemGroup>
+    <Content Include="..\phone\**\*" LinkBase="wwwroot" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

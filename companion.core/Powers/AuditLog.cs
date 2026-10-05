@@ -12,7 +12,7 @@ public sealed record AuditEntry(DateTime At, string Device, string Power, string
 
 /// <summary>
 /// Every phone → PC command attempt, allowed or not. Kept in memory for the companion
-/// window and appended to %APPDATA%\PeekPets\audit.log (rolled at 1 MB).
+/// window and appended to audit.log in the PeekPets data folder (rolled at 1 MB).
 /// </summary>
 public sealed class AuditLog(string? path = null)
 {

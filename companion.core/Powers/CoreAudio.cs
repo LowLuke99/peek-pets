@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace PeekPets.Companion.Powers;
 
@@ -6,6 +7,7 @@ namespace PeekPets.Companion.Powers;
 /// Minimal Windows Core Audio interop: read the speaker volume and toggle the default
 /// microphone's mute. Works with every normal sound driver (no extra software).
 /// </summary>
+[SupportedOSPlatform("windows")]
 internal static class CoreAudio
 {
     private enum EDataFlow { eRender = 0, eCapture = 1 }

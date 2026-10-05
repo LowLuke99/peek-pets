@@ -1,23 +1,16 @@
+using System.Runtime.Versioning;
 using PeekPets.Companion.Sensors;
 
 namespace PeekPets.Companion.Facts;
 
-/// <summary>
-/// A single piece of PC information the user can choose to share with the pet.
-/// Add a new fact by implementing this and registering it in <see cref="FactHub"/>.
-/// Values must be small JSON-serializable objects; return an "available: false"
-/// shape rather than null when the PC simply doesn't have the thing (e.g. no battery).
-/// </summary>
-public interface IFactProvider
+/// <summary>The Windows fact providers (Win32).</summary>
+[SupportedOSPlatform("windows")]
+public static class WindowsFacts
 {
-    string Key { get; }
-    string Label { get; }
-    string Description { get; }
-    bool DefaultShared { get; }
-    TimeSpan Interval { get; }
-    object Read();
+    public static IFactProvider[] All() => [new BatteryFact(), new ActivityFact(), new SystemLoadFact()];
 }
 
+[SupportedOSPlatform("windows")]
 public sealed class BatteryFact : IFactProvider
 {
     public string Key => "battery";
@@ -42,6 +35,7 @@ public sealed class BatteryFact : IFactProvider
     }
 }
 
+[SupportedOSPlatform("windows")]
 public sealed class ActivityFact : IFactProvider
 {
     public string Key => "activity";
@@ -61,6 +55,7 @@ public sealed class ActivityFact : IFactProvider
     }
 }
 
+[SupportedOSPlatform("windows")]
 public sealed class SystemLoadFact : IFactProvider
 {
     private ulong _lastIdle, _lastTotal;

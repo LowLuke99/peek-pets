@@ -2,6 +2,7 @@ using System.Formats.Asn1;
 using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using PeekPets.Companion.Platform;
 
 namespace PeekPets.Companion.Server;
 
@@ -12,27 +13,35 @@ namespace PeekPets.Companion.Server;
 ///
 /// Safety: the CA carries X.509 Name Constraints limiting it to private LAN addresses
 /// and .local names, so even if its key leaked it could not impersonate real websites.
-/// The private key never leaves this PC (stored under %APPDATA%\PeekPets\certs).
+/// The private key never leaves this computer (stored under the PeekPets data folder
+/// in certs/, protected by <see cref="IKeyVault"/>: DPAPI on Windows, owner-only on macOS).
 /// </summary>
-public sealed class LocalCertificates
+public sealed class LocalCertificates : IDisposable
 {
-    // The CA's private key is encrypted at rest with DPAPI (this Windows user only).
-    private const string CaFile = "ca.pfx.dpapi";
-    private const string LegacyCaFile = "ca.pfx";
+    private const string LegacyCaFile = "ca.pfx"; // pre-vault versions stored it unprotected
     private static readonly TimeSpan CaLifetime = TimeSpan.FromDays(365 * 5);
     private static readonly TimeSpan LeafLifetime = TimeSpan.FromDays(390);
-    private static readonly byte[] Entropy = "PeekPets.LocalCA.v1"u8.ToArray();
 
     private readonly string _dir;
+    private readonly IKeyVault _vault;
     private readonly object _gate = new();
     private X509Certificate2? _ca;
     private X509Certificate2? _leaf;
+    private X509Certificate2? _retiredLeaf; // kept one generation: a TLS handshake may still be using it
     private string _leafKey = "";
 
-    public LocalCertificates(string? dir = null)
+    public LocalCertificates(string? dir = null, IKeyVault? vault = null)
     {
-        _dir = dir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PeekPets", "certs");
+        _dir = dir ?? Path.Combine(CompanionPaths.DataDir, "certs");
+        _vault = vault ?? PlatformServices.CreateKeyVault();
     }
+
+    /// <summary>Where the CA key is kept (for tests and diagnostics).</summary>
+    public string KeyFile => Path.Combine(_dir, _vault.FileName);
+
+    // macOS can't hold keys "ephemerally" (it throws); there the key lives in a temporary keychain
+    // file under $TMPDIR (a per-user folder) that is deleted when the certificate is disposed.
+    private static X509KeyStorageFlags InMemoryKey => OperatingSystem.IsMacOS() ? X509KeyStorageFlags.DefaultKeySet : X509KeyStorageFlags.EphemeralKeySet;
 
     public X509Certificate2 Authority
     {
@@ -52,6 +61,8 @@ public sealed class LocalCertificates
         lock (_gate)
         {
             if (_leaf is not null && key == _leafKey && _leaf.NotAfter > DateTime.Now.AddDays(7)) return _leaf;
+            _retiredLeaf?.Dispose();
+            _retiredLeaf = _leaf;
             _leaf = IssueLeaf(addresses, hostName);
             _leafKey = key;
             return _leaf;
@@ -60,23 +71,22 @@ public sealed class LocalCertificates
 
     private X509Certificate2 LoadOrCreateAuthority()
     {
-        var path = Path.Combine(_dir, CaFile);
         var legacy = Path.Combine(_dir, LegacyCaFile);
         try
         {
-            byte[]? pfx = File.Exists(path) ? ProtectedData.Unprotect(File.ReadAllBytes(path), Entropy, DataProtectionScope.CurrentUser)
-                : File.Exists(legacy) ? File.ReadAllBytes(legacy) : null;
+            byte[]? pfx = _vault.Load(_dir) ?? (File.Exists(legacy) ? File.ReadAllBytes(legacy) : null);
             if (pfx is not null)
             {
-                var existing = new X509Certificate2(pfx, (string?)null, X509KeyStorageFlags.EphemeralKeySet);
+                var existing = new X509Certificate2(pfx, (string?)null, InMemoryKey);
                 if (existing.NotAfter > DateTime.Now.AddDays(30) && existing.HasPrivateKey)
                 {
-                    if (File.Exists(legacy)) { Save(path, pfx); File.Delete(legacy); } // migrate to encrypted
+                    if (File.Exists(legacy)) { _vault.Save(_dir, pfx); File.Delete(legacy); } // migrate into the vault
                     return existing;
                 }
+                existing.Dispose(); // expiring or keyless: replaced below
             }
         }
-        catch (CryptographicException) { /* unreadable (e.g. other Windows user): make a new CA */ }
+        catch (CryptographicException) { /* unreadable (e.g. other user): make a new CA */ }
 
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var name = new X500DistinguishedName($"CN=Peek Pets Local CA ({Environment.MachineName}), O=Peek Pets");
@@ -88,15 +98,9 @@ public sealed class LocalCertificates
         var now = DateTimeOffset.UtcNow.AddMinutes(-5);
         using var ca = req.CreateSelfSigned(now, now + CaLifetime);
         var bytes = ca.Export(X509ContentType.Pfx);
-        Save(path, bytes);
+        _vault.Save(_dir, bytes);
         // In memory: ephemeral, non-exportable key used only to sign leaf certificates.
-        return new X509Certificate2(bytes, (string?)null, X509KeyStorageFlags.EphemeralKeySet);
-    }
-
-    private void Save(string path, byte[] pfx)
-    {
-        Directory.CreateDirectory(_dir);
-        File.WriteAllBytes(path, ProtectedData.Protect(pfx, Entropy, DataProtectionScope.CurrentUser));
+        return new X509Certificate2(bytes, (string?)null, InMemoryKey);
     }
 
     private X509Certificate2 IssueLeaf(IReadOnlyList<IPAddress> addresses, string hostName)
@@ -124,6 +128,18 @@ public sealed class LocalCertificates
         using var withKey = signed.CopyWithPrivateKey(key);
         // Round-trip through PFX so SChannel (Kestrel on Windows) can use the key.
         return new X509Certificate2(withKey.Export(X509ContentType.Pfx), (string?)null, X509KeyStorageFlags.Exportable);
+    }
+
+    /// <summary>Releases the in-memory keys (on macOS this deletes their temporary keychains).</summary>
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            _retiredLeaf?.Dispose();
+            _leaf?.Dispose();
+            _ca?.Dispose();
+            _retiredLeaf = _leaf = _ca = null;
+        }
     }
 
     /// <summary>

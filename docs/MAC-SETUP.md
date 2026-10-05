@@ -2,7 +2,8 @@
 
 **Why a Mac:** with Xcode you can install the real iPhone app straight from your Mac with a
 free Apple ID: no Sideloadly, no iTunes, and renewing every 7 days is one click (▶).
-The **Windows PC keeps running Peek Pets Companion**; the Mac only builds the app.
+The companion (the cursor half) runs on the Windows PC **or on the Mac itself**: see
+[MAC-COMPANION.md](MAC-COMPANION.md). This page is only about building the iPhone app.
 
 You need: a Mac with **Xcode** (free, Mac App Store, ~10 GB) and your iPhone + cable.
 
@@ -47,8 +48,8 @@ project, and opens Xcode.
 4. Press **▶ Run**. The first time, on the iPhone:
    * **Settings → Privacy & Security → Developer Mode → On** (it restarts), and
    * **Settings → General → VPN & Device Management → your Apple ID → Trust**.
-5. Open **Peek Pets** → allow **Local Network** → tap your PC → type the code from the
-   companion window on the PC. Done.
+5. Open **Peek Pets** → allow **Local Network** → tap your computer → type the code from the
+   companion window (Windows PC or Mac). Done.
 
 After the first cable run you can tick **Connect via network** in *Window → Devices and
 Simulators*, and later installs work over Wi-Fi.

@@ -18,12 +18,13 @@ import { bloop } from './bloop.js';
 import { bao } from './bao.js';
 import { mallow } from './mallow.js';
 import { cap } from './cap.js';
+import { zoe } from './zoe.js';
 
 // Only the latest batch wears the NEW tag in the picker (older modules may still carry
 // `isNew: true` from their own launch; this list is the source of truth).
-const NEW_PETS = new Set(['bloop', 'bao', 'mallow', 'cap']);
+const NEW_PETS = new Set(['zoe']);
 
-export const SPECIES = Object.freeze([mochi, pip, nimbus, plum, sprig, ember, puff, bun, inky, pebble, lumi, opal, bloop, bao, mallow, cap]
+export const SPECIES = Object.freeze([mochi, pip, nimbus, plum, sprig, ember, puff, bun, inky, pebble, lumi, opal, bloop, bao, mallow, cap, zoe]
   .map((s) => (Boolean(s.isNew) === NEW_PETS.has(s.id) ? s : { ...s, isNew: NEW_PETS.has(s.id) })));
 
 export function getSpecies(id) {

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text.Json;
 using PeekPets.Companion.Sensors;
 
@@ -10,7 +11,14 @@ public interface IHealthProbe
     HealthReading Read();
 }
 
+/// <summary>Where there is no health probe yet (macOS until Phase 2): reports nothing, so no alerts fire.</summary>
+public sealed class NoHealthProbe : IHealthProbe
+{
+    public HealthReading Read() => new([], null, null, null, null);
+}
+
 /// <summary>Reads drive space, memory, CPU and (where Windows exposes it) the ACPI thermal zone.</summary>
+[SupportedOSPlatform("windows")]
 public sealed class WindowsHealthProbe : IHealthProbe
 {
     private ulong _lastIdle, _lastTotal;
@@ -83,7 +91,7 @@ public sealed class HealthPower(IHealthProbe? probe = null) : PowerBase
 {
     private static readonly TimeSpan ReadEvery = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan HintsFor = TimeSpan.FromMinutes(10);
-    private readonly IHealthProbe _probe = probe ?? new WindowsHealthProbe();
+    private readonly IHealthProbe _probe = probe ?? (OperatingSystem.IsWindows() ? new WindowsHealthProbe() : new NoHealthProbe());
     private HealthRules _rules = new();
     private HealthReading? _last;
     private DateTime _nextRead;

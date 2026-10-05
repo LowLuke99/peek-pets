@@ -1,0 +1,70 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PeekPets.Companion.Mac.App"
+             Name="Peek Pets Companion"
+             RequestedThemeVariant="Light">
+    <!-- Same palette as the Windows companion (companion/App.xaml). -->
+    <Application.Resources>
+        <SolidColorBrush x:Key="Paper" Color="#FFF7F0"/>
+        <SolidColorBrush x:Key="Card" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="Ink" Color="#3B2A26"/>
+        <SolidColorBrush x:Key="Muted" Color="#8A746D"/>
+        <SolidColorBrush x:Key="Coral" Color="#F2735F"/>
+        <SolidColorBrush x:Key="CoralSoft" Color="#FFE3DA"/>
+        <SolidColorBrush x:Key="Line" Color="#F1E3DB"/>
+        <SolidColorBrush x:Key="Good" Color="#3BA776"/>
+        <SolidColorBrush x:Key="Warn" Color="#D9822B"/>
+        <!-- Fluent ToggleSwitch colours -->
+        <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#F2735F"/>
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#E8634E"/>
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#D9563F"/>
+        <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="#E7D9D2"/>
+        <SolidColorBrush x:Key="ToggleSwitchFillOffPointerOver" Color="#DDCCC3"/>
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOff" Color="Transparent"/>
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOffPointerOver" Color="Transparent"/>
+        <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="White"/>
+        <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPointerOver" Color="White"/>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme/>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource Card}"/>
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="Padding" Value="18"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BoxShadow" Value="0 3 24 0 #147A3B2A"/>
+        </Style>
+        <Style Selector="TextBlock.heading">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="Button.pill">
+            <Setter Property="Background" Value="{StaticResource CoralSoft}"/>
+            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.pill:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#FFD3C6"/>
+            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        </Style>
+        <Style Selector="Button.pill:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#FFC4B4"/>
+        </Style>
+        <Style Selector="Button.small">
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+    </Application.Styles>
+</Application>

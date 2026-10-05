@@ -13,7 +13,7 @@ public sealed class PairedDevice
     public DateTime LastSeen { get; set; }
 }
 
-/// <summary>Persisted companion preferences. Stored under %APPDATA%\PeekPets.</summary>
+/// <summary>Persisted companion preferences. Stored in <see cref="CompanionPaths.DataDir"/>.</summary>
 public sealed class CompanionSettings
 {
     public int Port { get; set; } = 8787;
@@ -51,7 +51,7 @@ public sealed class CompanionSettings
 
     public static CompanionSettings Load(string? path = null)
     {
-        path ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PeekPets", "companion.json");
+        path ??= Path.Combine(CompanionPaths.DataDir, "companion.json");
         CompanionSettings settings;
         try
         {

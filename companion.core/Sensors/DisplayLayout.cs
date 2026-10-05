@@ -58,22 +58,10 @@ public sealed class DisplayLayout
 
     private static double Frac(double v, double size) => size <= 1 ? 0.5 : Math.Clamp(v / (size - 1), 0, 1);
 
-    /// <summary>Reads the live monitor list. Call from a per-monitor-DPI-aware thread.</summary>
-    public static DisplayLayout Read()
+    /// <summary>Stable order: primary first, then left-to-right. The phone treats index 0 as "main".</summary>
+    public static DisplayLayout Ordered(IEnumerable<Screen> screens)
     {
-        var list = new List<Screen>();
-        Win32.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr h, IntPtr _, ref Win32.RECT _, IntPtr _) =>
-        {
-            var info = new Win32.MONITORINFOEX { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<Win32.MONITORINFOEX>() };
-            if (Win32.GetMonitorInfo(h, ref info))
-            {
-                var r = info.rcMonitor;
-                list.Add(new Screen(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top, (info.dwFlags & Win32.MONITORINFOF_PRIMARY) != 0));
-            }
-            return true;
-        }, IntPtr.Zero);
-        // Stable order: primary first, then left-to-right. The phone treats index 0 as "main".
-        var ordered = list.OrderByDescending(s => s.Primary).ThenBy(s => s.X).ThenBy(s => s.Y).ToList();
+        var ordered = screens.OrderByDescending(s => s.Primary).ThenBy(s => s.X).ThenBy(s => s.Y).ToList();
         return new DisplayLayout(ordered.Count > 0 ? ordered : [new Screen(0, 0, 1920, 1080, true)]);
     }
 }

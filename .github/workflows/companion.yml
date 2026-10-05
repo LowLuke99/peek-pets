@@ -1,0 +1,148 @@
+# Peek Pets Companion on both desktops. Ship an update = bump Directory.Build.props and merge
+# to main (docs/UPDATING.md).
+#  * windows: builds the WPF companion, runs the companion tests, packages the standalone exe,
+#    smoke-tests it and the one-line installer, uploads the zip.
+#  * mac: runs the same tests, packages "Peek Pets Companion.app" for Apple silicon + Intel,
+#    smoke-tests the bundle and the one-line installer, uploads the zips.
+#  * release: on main replaces the assets of the "companion-latest" release that both
+#    one-line installers (tools/mac/install-companion.sh, tools/windows/install-companion.ps1) download.
+name: Companion (Windows + Mac)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['companion/**', 'companion.core/**', 'companion.mac/**', 'companion.tests/**', 'phone/**', 'tools/mac/**', 'tools/windows/**', 'tools/publish.ps1', 'Directory.Build.props', '.github/workflows/companion.yml']
+  push:
+    branches: [main]
+    paths: ['companion/**', 'companion.core/**', 'companion.mac/**', 'companion.tests/**', 'phone/**', 'tools/mac/**', 'tools/windows/**', 'tools/publish.ps1', 'Directory.Build.props', '.github/workflows/companion.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build the Windows companion
+        run: dotnet build companion -c Release
+      - name: Companion tests
+        run: dotnet test companion.tests -c Release
+      - name: Package the standalone exe
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tools\publish.ps1
+      - name: One-line installer installs the zip (Windows PowerShell, like friends have)
+        shell: powershell
+        run: |
+          $env:PEEKPETS_COMPANION_URL = "$PWD\dist\windows\PeekPets-Companion-windows-x64.zip"
+          $env:PEEKPETS_SUMS_URL = "$PWD\dist\windows\SHA256SUMS"
+          $env:PEEKPETS_INSTALL_DIR = "$env:RUNNER_TEMP\PeekPets"
+          $env:PEEKPETS_NO_OPEN = '1'
+          Get-Content -Raw tools\windows\install-companion.ps1 | Invoke-Expression
+          if (-not (Test-Path "$env:RUNNER_TEMP\PeekPets\PeekPets.Companion.exe")) { throw 'exe not installed' }
+          if (-not (Test-Path "$env:RUNNER_TEMP\PeekPets\wwwroot\index.html")) { throw 'phone app not installed' }
+          if (-not (Test-Path "$env:RUNNER_TEMP\PeekPets\Allow-Phone-Access.ps1")) { throw 'firewall helper missing (the Fix it button needs it)' }
+      - name: Smoke test the installed exe (serves the phone app and its API)
+        shell: powershell
+        run: |
+          $p = Start-Process "$env:RUNNER_TEMP\PeekPets\PeekPets.Companion.exe" -ArgumentList '--loopback','--no-https','--port','18787','--settings',"$env:RUNNER_TEMP\c.json" -PassThru
+          $ok = $false
+          foreach ($i in 1..30) { try { $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18787/api/info; $ok = $true; break } catch { Start-Sleep 1 } }
+          if (-not $ok) { throw 'companion did not answer' }
+          if ($r.Content -notmatch '"app":"peek-pets"') { throw "unexpected /api/info: $($r.Content)" }
+          Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18787/index.html | Out-Null
+          Write-Host $r.Content
+          Stop-Process -Id $p.Id -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: peek-pets-companion-windows
+          path: dist/windows/*.zip
+          retention-days: 14
+
+  mac:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # build number = commit count
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Scripts keep LF endings and the executable bit
+        run: |
+          for f in tools/mac/*.sh "Start Peek Pets.command"; do
+            test -x "$f" || { echo "not executable: $f"; exit 1; }
+            if grep -q $'\r' "$f"; then echo "CRLF line endings in $f"; exit 1; fi
+            # "$var…" breaks under some locales (bash reads the … bytes as part of the name): use "${var}…"
+            if LC_ALL=C grep -nE '\$[A-Za-z_][A-Za-z0-9_]*[^ -~]' "$f"; then echo "brace the variable before non-ASCII text in $f"; exit 1; fi
+          done
+      - name: Companion tests
+        run: dotnet test companion.tests -c Release
+      - name: Developer launcher builds from source
+        run: ./tools/mac/start-companion.sh --check
+      - name: Package the app (arm64 + x64)
+        run: ./tools/mac/package-companion.sh arm64 x64
+      - name: Smoke test the bundle (serves the phone app and its API)
+        run: |
+          app="dist/mac/arm64/Peek Pets Companion.app"
+          plutil -lint "$app/Contents/Info.plist"
+          codesign --verify --deep "$app"
+          "$app/Contents/MacOS/PeekPets.Companion.Mac" --loopback --no-https --port 18787 --settings "$RUNNER_TEMP/c.json" &
+          pid=$!
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:18787/api/info && break; sleep 1; done
+          curl -sf http://127.0.0.1:18787/api/info | grep -q '"app":"peek-pets"'
+          curl -sf -o /dev/null http://127.0.0.1:18787/index.html
+          kill $pid
+      - name: One-line installer installs the zip
+        run: |
+          PEEKPETS_COMPANION_URL="file://$PWD/dist/mac/PeekPets-Companion-mac-arm64.zip" \
+          PEEKPETS_SUMS_URL="file://$PWD/dist/mac/SHA256SUMS" \
+          PEEKPETS_INSTALL_DIR="$RUNNER_TEMP/apps" PEEKPETS_NO_OPEN=1 bash tools/mac/install-companion.sh
+          codesign --verify --deep "$RUNNER_TEMP/apps/Peek Pets Companion.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: peek-pets-companion-mac
+          path: |
+            dist/mac/*.zip
+            dist/mac/SHA256SUMS
+          retention-days: 14
+
+  release:
+    # Only main publishes: the one-line installer downloads whatever is in this release.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [windows, mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: Directory.Build.props
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: peek-pets-companion-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums for every download
+        run: cd dist && sha256sum *.zip > SHA256SUMS && cat SHA256SUMS
+      - name: Publish to the companion-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props 2>/dev/null | head -1)"
+          notes="Peek Pets Companion ${version} for Mac and Windows, built from ${GITHUB_SHA::7}.
+
+          Mac: curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/tools/mac/install-companion.sh | bash
+          Windows (PowerShell): irm https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/tools/windows/install-companion.ps1 | iex"
+          if gh release view companion-latest >/dev/null 2>&1; then
+            gh release edit companion-latest --title "Peek Pets Companion (latest)" --notes "$notes" --prerelease
+          else
+            gh release create companion-latest --title "Peek Pets Companion (latest)" --notes "$notes" --prerelease --target "$GITHUB_SHA"
+          fi
+          gh release upload companion-latest dist/*.zip dist/SHA256SUMS --clobber

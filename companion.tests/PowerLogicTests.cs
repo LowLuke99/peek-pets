@@ -272,11 +272,12 @@ public sealed class SmallLogicTests : IDisposable
     public void Favourites_accept_only_web_addresses_and_real_apps()
     {
         Assert.True(FavoriteRules.IsValidTarget("https://youtube.com"));
-        Assert.True(FavoriteRules.IsValidTarget(Environment.GetFolderPath(Environment.SpecialFolder.Windows)));
-        Assert.True(FavoriteRules.IsValidTarget(Path.Combine(Environment.SystemDirectory, "notepad.exe")));
         Assert.False(FavoriteRules.IsValidTarget("file:///C:/Windows/System32/cmd.exe"));
         Assert.False(FavoriteRules.IsValidTarget("javascript:alert(1)"));
         Assert.False(FavoriteRules.IsValidTarget("notepad.exe")); // relative: could resolve anywhere
+        if (!OperatingSystem.IsWindows()) return; // the rest are Windows paths (Mac favourites come with Mac powers)
+        Assert.True(FavoriteRules.IsValidTarget(Environment.GetFolderPath(Environment.SpecialFolder.Windows)));
+        Assert.True(FavoriteRules.IsValidTarget(Path.Combine(Environment.SystemDirectory, "notepad.exe")));
         Assert.False(FavoriteRules.IsValidTarget(Path.Combine(Environment.SystemDirectory, "drivers", "etc", "hosts")));
         Assert.False(FavoriteRules.IsValidTarget(@"C:\nope\missing.exe"));
         Assert.Null(FavoriteRules.CleanLabel(new string('x', 40)));

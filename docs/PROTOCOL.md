@@ -63,9 +63,10 @@ phone → {"t":"sub","cursorHz":60,"paused":false}
 | `activity` | `{available:true, idleSec}`: seconds since last input, bucketed to 5 s; no keys are read | on |
 | `load` | `{available:true, cpu, memory}`: percentages | off |
 
-Add a fact by implementing `IFactProvider` (`companion/Facts/FactProviders.cs`) and adding
-it to `FactHub`. It automatically gets a toggle, is shown on the phone's PC sheet, and is
-only read while shared.
+Add a fact by implementing `IFactProvider` (`companion.core/Facts/IFactProvider.cs`) for each OS
+(`companion.core/Platform/Windows/WindowsFacts.cs`, `companion.core/Platform/Mac/MacFacts.cs`) and
+listing it there. It automatically gets a toggle, is shown on the phone's PC sheet, and is only
+read while shared.
 
 ## Phone → PC
 
