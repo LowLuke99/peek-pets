@@ -11,7 +11,7 @@ export const POP = Object.freeze({
   values: { treat: 1, gold: 3, rain: -2 },
 });
 
-const TREATS = ['berry', 'cookie', 'onigiri', 'icecream'];
+const TREATS = ['berry', 'cookie', 'onigiri', 'icecream', 'donut', 'cupcake', 'pancakes', 'watermelon', 'dumpling', 'taiyaki', 'boba'];
 
 export function newPop() {
   return Object.freeze({ time: 0, score: 0, pops: 0, bubbles: [], spawnIn: 0.2, nextId: 1, over: false });

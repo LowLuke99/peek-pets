@@ -1,9 +1,43 @@
-// Wardrobe drawing: hats (head slot) and glasses (face slot), in the pet's local space
-// so they squash, lean and hop with it. Hats sit where the species says
-// (`propFit.hat`: x, y, s = scale, rot), else on top of the hit area. A little
+// Wardrobe drawing: hats (head slot), glasses (face slot) and a bandana (neck slot), in
+// the pet's local space so they squash, lean and hop with it. Hats sit where the species
+// says (`propFit.hat`: x, y, s = scale, rot), else on top of the hit area. A little
 // follow-through tilt makes them feel like they're actually perched on the head.
+// Items are the clay pictures from img/wardrobe/ (same art as the Shop); the vector
+// drawings below stand in for the moment before a picture has loaded, and draw the cat
+// ears and halo (a headband picture can't sit *around* a head from the front).
 
 import { shade, withAlpha } from './face.js';
+import { ready } from '../fx/images.js';
+
+const spriteOf = (id) => ready(`img/wardrobe/${id}.webp`);
+
+// How each hat picture sits, in hat-local units (origin = top of the head).
+// at 'bottom': the picture's bottom-centre goes on (x, y); 'center': its middle does.
+const HAT_SPRITES = {
+  bow: { w: 0.32, x: 0.2, y: 0.02, rot: 0.28, at: 'center' },
+  flower: { w: 0.25, x: 0.21, y: 0.03, rot: 0.2, at: 'center' },
+  party: { w: 0.3, y: 0.05, rot: -0.16 },
+  beanie: { w: 0.6, y: 0.1 },
+  crown: { w: 0.4, y: 0.045 },
+  wizard: { w: 0.52, y: 0.07, rot: -0.06 },
+  chef: { w: 0.46, y: 0.07 },
+  pirate: { w: 0.58, y: 0.07 },
+  cowboy: { w: 0.68, y: 0.09 },
+  santa: { w: 0.56, y: 0.09, rot: 0.06 },
+  viking: { w: 0.7, y: 0.11 },
+  flowercrown: { w: 0.56, y: 0.07 },
+};
+
+// Glasses pictures: lens spacing as a fraction of the picture's width, and the height
+// (fraction from the top) of the lens centres. Monocle: one lens over the right eye.
+const GLASS_SPRITES = {
+  specs: { sep: 0.58, cy: 0.5 },
+  shades: { sep: 0.52, cy: 0.58 },
+  heartglasses: { sep: 0.52, cy: 0.55 },
+  monocle: { eye: true, cx: 0.35, cy: 0.37, ring: 0.72 },
+};
+
+const aspect = (img) => img.naturalHeight / img.naturalWidth;
 
 const TAU = Math.PI * 2;
 
@@ -15,8 +49,10 @@ export function hatAnchor(species) {
 /** @param {{head: string|null, face: string|null}} outfit */
 export function drawOutfit(ctx, species, pose, outfit) {
   if (!outfit) return;
+  if (outfit.neck) drawNeck(ctx, species, pose, outfit.neck);
   if (outfit.face) drawGlasses(ctx, species, pose, outfit.face);
-  if (outfit.head) drawHat(ctx, species, pose, outfit.head);
+  if (outfit.head === 'headphones') drawHeadphones(ctx, species, pose);
+  else if (outfit.head) drawHat(ctx, species, pose, outfit.head);
 }
 
 function drawHat(ctx, species, pose, id) {
@@ -26,8 +62,49 @@ function drawHat(ctx, species, pose, id) {
   ctx.translate(a.x, a.y);
   ctx.rotate(a.rot + lag);
   ctx.scale(a.s, a.s);
-  const draw = HATS[id];
-  draw?.(ctx, pose, species.palette.accent);
+  const fit = HAT_SPRITES[id];
+  const img = fit && spriteOf(id);
+  if (img) {
+    ctx.translate(fit.x ?? 0, fit.y ?? 0);
+    ctx.rotate(fit.rot ?? 0);
+    const h = fit.w * aspect(img);
+    ctx.drawImage(img, -fit.w / 2, fit.at === 'center' ? -h / 2 : -h, fit.w, h);
+  } else {
+    HATS[id]?.(ctx, pose, species.palette.accent);
+  }
+  ctx.restore();
+}
+
+/** Headphones hug the sides of the head, cups at eye height (sized from the head, not the hat anchor). */
+function drawHeadphones(ctx, species, pose) {
+  const img = spriteOf('headphones');
+  if (!img) return;
+  const h0 = species.hit;
+  const top = species.propFit?.top ?? h0.cy - h0.ry;
+  const side = species.propFit?.side ?? h0.rx;
+  const w = side * 2 * 1.16;
+  const natural = w * aspect(img);
+  // Cups (≈80% down the picture) land on the eyes; allow a little squash/stretch to get there.
+  const h = Math.min(natural * 1.25, Math.max(natural * 0.8, (species.face.y - top + 0.05) / 0.8));
+  ctx.save();
+  ctx.translate((pose.lean?.x ?? 0) * 0.02, top - 0.05);
+  ctx.rotate(-(pose.lean?.x ?? 0) * 0.04);
+  ctx.drawImage(img, -w / 2, 0, w, h);
+  ctx.restore();
+}
+
+/** Bandana: knotted under the face. `propFit.neck` = { y, w } overrides the guess. */
+function drawNeck(ctx, species, pose, id) {
+  const img = spriteOf(id);
+  if (!img) return;
+  const f = species.face;
+  const guess = { y: f.y + f.r * 2.4, w: Math.min(0.46, species.hit.rx * 0.95) };
+  const a = { ...guess, ...(species.propFit?.neck ?? {}) };
+  const h = a.w * aspect(img);
+  ctx.save();
+  ctx.translate((pose.lean?.x ?? 0) * 0.03, a.y);
+  ctx.rotate(-(pose.lean?.x ?? 0) * 0.05 + Math.sin(pose.t * 15) * (pose.hop ?? 0) * 0.1);
+  ctx.drawImage(img, -a.w / 2, -h * 0.22, a.w, h); // the tied band (top ≈22%) sits on the line
   ctx.restore();
 }
 
@@ -318,6 +395,22 @@ function drawGlasses(ctx, species, pose, id) {
   const f = species.face;
   const r = f.r * 1.45;
   const dx = (pose.lean?.x ?? 0) * 0.045, dy = (pose.lean?.y ?? 0) * 0.03;
+  const fit = GLASS_SPRITES[id];
+  const img = fit && spriteOf(id);
+  if (img) {
+    ctx.save();
+    ctx.translate(dx, dy + (species.propFit?.glassesY ?? 0));
+    if (fit.eye) {
+      const w = (r * 2) / fit.ring, h = w * aspect(img);
+      ctx.drawImage(img, f.rx - fit.cx * w, f.y - fit.cy * h, w, h);
+    } else {
+      const w = Math.max((f.rx - f.lx) / fit.sep, r * 4.4), h = w * aspect(img);
+      ctx.drawImage(img, (f.lx + f.rx) / 2 - w / 2, f.y - fit.cy * h, w, h);
+    }
+    ctx.restore();
+    return;
+  }
+  if (id === 'monocle') return;
   if (id === 'heartglasses') return drawHeartGlasses(ctx, species, pose);
   const dark = id === 'shades';
   ctx.save();
@@ -399,31 +492,4 @@ function roundRectPath(ctx, x, y, w, h, r) {
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   roundRectPath(ctx, x, y, w, h, r);
-}
-
-// ---------------------------------------------------------------- picker icons
-const ICON_FIT = {
-  bow: { s: 2.2, x: -0.2, y: 0.0 }, flower: { s: 2.4, x: -0.21, y: -0.03 },
-  party: { s: 1.45, x: 0, y: 0.17 }, beanie: { s: 1.5, x: 0, y: 0.1 },
-  crown: { s: 1.9, x: 0, y: 0.07 }, wizard: { s: 1.35, x: -0.03, y: 0.2 },
-  catears: { s: 1.7, x: 0, y: 0.08 }, halo: { s: 2, x: 0, y: 0.12 }, chef: { s: 1.5, x: 0, y: 0.14 },
-  pirate: { s: 1.6, x: 0, y: 0.1 }, flowercrown: { s: 1.8, x: 0, y: 0.03 },
-};
-const ICON_FACE = { lx: -0.17, rx: 0.17, y: 0, r: 0.1 };
-const STILL = { t: 1.2, hop: 0, lean: { x: 0, y: 0 } };
-
-/** Draws one wardrobe item centred in a square canvas of `px` device pixels. */
-export function drawItemIcon(ctx, id, px, accent = '#F2735F') {
-  ctx.setTransform(px, 0, 0, px, 0, 0);
-  ctx.clearRect(0, 0, 1, 1);
-  ctx.translate(0.5, 0.5);
-  if (HATS[id]) {
-    const f = ICON_FIT[id] ?? { s: 1.5, x: 0, y: 0 };
-    ctx.scale(f.s, f.s);
-    ctx.translate(f.x, f.y);
-    HATS[id](ctx, STILL, accent);
-  } else {
-    ctx.scale(1.5, 1.5);
-    drawGlasses(ctx, { face: ICON_FACE }, STILL, id);
-  }
 }

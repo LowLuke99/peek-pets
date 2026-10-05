@@ -6,18 +6,18 @@ import { newCups, cupsAt, phaseAt, pickCup, CUPS } from './cups.js';
 import { favouriteOf, snackById } from '../core/snacks.js';
 import { shade } from '../pet/face.js';
 import { haptic } from '../native.js';
+import { drawTreat } from '../fx/treats.js';
 
 const CUP_Y = 0.42;          // cup mouth sits this far below the pet's ground line (in front of it)
 const CUP_H = 0.3, CUP_W = 0.27;
 const REVEAL_S = 1.5;
-const FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
 export class CupsGame {
   constructor(host) {
     this.host = host;
     this.app = host.app;
     this.level = 1;
-    this.treat = snackById(favouriteOf(this.app.species.id))?.emoji ?? '🍓';
+    this.treat = snackById(favouriteOf(this.app.species.id))?.id ?? 'berry';
     this.newRound();
   }
 
@@ -122,10 +122,8 @@ export class CupsGame {
     const treatCup = cups[this.round.treatCup];
     if (liftOf(treatCup) > 0.05) {
       ctx.save();
-      ctx.font = `0.16px ${FONT}`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillText(this.treat, treatCup.x * k, CUP_Y - 0.01);
+      ctx.translate(treatCup.x * k, CUP_Y - 0.01 - 0.07); // sits on the floor, like the old emoji baseline
+      drawTreat(ctx, this.treat, 0.16);
       ctx.restore();
     }
     for (const c of [...cups].sort((a, b) => a.y - b.y)) drawCup(ctx, c.x * k, CUP_Y + c.y * 0.4, liftOf(c), accent, c.y);

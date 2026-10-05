@@ -1,14 +1,22 @@
-// Snacks: a little treat menu. Every pet has a favourite; chili is a joke for everyone
-// except Ember. After a few snacks in a short while the pet is simply full and says
-// "maybe later" (never sick, never sad). Pure functions; the app keeps `eaten` times.
+// Snacks: a little treat menu (clay pictures in img/snacks/, emoji while they load).
+// Every pet has a favourite; chili is a joke for everyone except Ember. After a few
+// snacks in a short while the pet is simply full and says "maybe later" (never sick,
+// never sad). Pure functions; the app keeps `eaten` times.
 
 export const SNACKS = Object.freeze([
   { id: 'berry', name: 'Strawberry', emoji: '🍓' },
   { id: 'cookie', name: 'Cookie', emoji: '🍪' },
   { id: 'onigiri', name: 'Rice ball', emoji: '🍙' },
   { id: 'icecream', name: 'Ice cream', emoji: '🍦' },
+  { id: 'donut', name: 'Donut', emoji: '🍩' },
+  { id: 'cupcake', name: 'Cupcake', emoji: '🧁' },
+  { id: 'pancakes', name: 'Pancakes', emoji: '🥞' },
+  { id: 'watermelon', name: 'Watermelon', emoji: '🍉' },
+  { id: 'dumpling', name: 'Dumpling', emoji: '🥟' },
+  { id: 'taiyaki', name: 'Taiyaki', emoji: '🐟' },
+  { id: 'boba', name: 'Bubble tea', emoji: '🧋' },
   { id: 'chili', name: 'Chili', emoji: '🌶️' },
-].map((s) => Object.freeze(s)));
+].map((s) => Object.freeze({ ...s, img: `img/snacks/${s.id}.webp` })));
 
 const FAVOURITES = Object.freeze({
   mochi: 'onigiri', // it is a rice cake, after all
@@ -23,6 +31,10 @@ const FAVOURITES = Object.freeze({
   pebble: 'onigiri',
   lumi: 'berry',
   opal: 'cookie',
+  bloop: 'boba',
+  bao: 'pancakes',
+  mallow: 'cupcake',
+  cap: 'watermelon',
 });
 
 export const FULL_AFTER = 4;

@@ -1,4 +1,5 @@
-// The wardrobe: hats and glasses, bought with coins in the Shop (a couple are free).
+// The wardrobe: hats, glasses and a bandana, bought with coins in the Shop (a couple
+// are free). Slots: head, face, neck (one item each).
 // Each pet keeps its own outfit. Pure functions; the app persists `outfits` and `owned`.
 
 export const WARDROBE = Object.freeze([
@@ -6,6 +7,7 @@ export const WARDROBE = Object.freeze([
   { id: 'flower', slot: 'head', name: 'Blossom', price: 0 },
   { id: 'specs', slot: 'face', name: 'Round specs', price: 40 },
   { id: 'party', slot: 'head', name: 'Party hat', price: 40 },
+  { id: 'bandana', slot: 'neck', name: 'Bandana', price: 50 },
   { id: 'catears', slot: 'head', name: 'Cat ears', price: 60 },
   { id: 'beanie', slot: 'head', name: 'Beanie', price: 60 },
   { id: 'heartglasses', slot: 'face', name: 'Heart glasses', price: 70 },
@@ -13,12 +15,18 @@ export const WARDROBE = Object.freeze([
   { id: 'shades', slot: 'face', name: 'Shades', price: 80 },
   { id: 'flowercrown', slot: 'head', name: 'Flower crown', price: 80 },
   { id: 'pirate', slot: 'head', name: 'Pirate hat', price: 90 },
+  { id: 'santa', slot: 'head', name: 'Santa hat', price: 90 },
+  { id: 'headphones', slot: 'head', name: 'Headphones', price: 90 },
+  { id: 'cowboy', slot: 'head', name: 'Cowboy hat', price: 100 },
   { id: 'halo', slot: 'head', name: 'Halo', price: 100 },
+  { id: 'monocle', slot: 'face', name: 'Monocle', price: 110 },
   { id: 'wizard', slot: 'head', name: 'Wizard hat', price: 120 },
+  { id: 'viking', slot: 'head', name: 'Viking helmet', price: 130 },
   { id: 'crown', slot: 'head', name: 'Crown', price: 150 },
-].map((i) => Object.freeze(i)));
+].map((i) => Object.freeze({ ...i, img: `img/wardrobe/${i.id}.webp` })));
 
-const EMPTY = Object.freeze({ head: null, face: null });
+export const SLOTS = Object.freeze(['head', 'face', 'neck']);
+const EMPTY = Object.freeze({ head: null, face: null, neck: null });
 
 export const itemById = (id) => WARDROBE.find((i) => i.id === id) ?? null;
 
@@ -30,7 +38,7 @@ export function outfitFor(outfits, petId) {
   const raw = outfits && typeof outfits === 'object' ? outfits[petId] : null;
   if (!raw || typeof raw !== 'object') return EMPTY;
   const valid = (slot) => (itemById(raw[slot])?.slot === slot ? raw[slot] : null);
-  return { head: valid('head'), face: valid('face') };
+  return { head: valid('head'), face: valid('face'), neck: valid('neck') };
 }
 
 /** Puts an item on (replacing that slot) or takes it off if it is already worn. */
@@ -61,7 +69,7 @@ const OLD_UNLOCK_LEVEL = { bow: 1, flower: 1, party: 2, specs: 2, beanie: 3, sha
 export function migrateOwned(outfits, backdrop, oldLevel) {
   const ids = new Set();
   for (const o of Object.values(outfits && typeof outfits === 'object' ? outfits : {})) {
-    for (const id of [o?.head, o?.face]) if (itemById(id)?.price > 0) ids.add(id);
+    for (const id of [o?.head, o?.face, o?.neck]) if (itemById(id)?.price > 0) ids.add(id);
   }
   for (const [id, lv] of Object.entries(OLD_UNLOCK_LEVEL)) if (lv <= oldLevel && itemById(id)?.price > 0) ids.add(id);
   if (backdrop && backdrop !== 'none' && backdrop !== 'bedroom') ids.add(backdrop);

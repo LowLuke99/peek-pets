@@ -7,6 +7,8 @@ import { store } from '../store.js';
 import { SNACKS, snackById, eatSnack, favouriteOf } from '../core/snacks.js';
 import { pickLine } from '../behavior/lines.js';
 import { haptic } from '../native.js';
+import { preload } from '../fx/images.js';
+import { drawTreat } from '../fx/treats.js';
 
 const FLIGHT_S = 0.8;
 
@@ -16,6 +18,7 @@ export class SnackTime {
     this.treat = null;
     this.eaten = store.get('snacks') ?? {};
     this.found = store.get('snackFavs') ?? {}; // favourites you've discovered, per pet
+    preload(SNACKS.map((s) => s.img));
   }
 
   get menu() {
@@ -142,10 +145,7 @@ export class SnackTime {
     ctx.globalAlpha = t.bounce ? Math.max(0, 1 - t.bounce.age / 0.9) : 1;
     ctx.translate(t.x, t.y);
     ctx.rotate(Math.sin(t.spin) * 0.35);
-    ctx.font = `${size}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(t.snack.emoji, 0, 0);
+    drawTreat(ctx, t.snack.id, size);
     ctx.restore();
   }
 }

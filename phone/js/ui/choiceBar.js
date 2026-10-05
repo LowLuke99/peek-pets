@@ -16,8 +16,9 @@ export class ChoiceBar {
     });
   }
 
-  /** @param {{id: string, emoji: string, name: string, mark?: string, label?: string}[]} items */
+  /** @param {{id: string, emoji: string, img?: string, name: string, mark?: string, label?: string}[]} items */
   show(items) {
+    this.el.classList.toggle('snackbar--many', items.length > 6);
     this.el.replaceChildren(...items.map((s) => h('button', {
       class: `snack${s.label ? ' snack--labelled' : ''}`, type: 'button', 'data-choice': s.id,
       'aria-label': `${s.name}${s.mark ? ` (${s.markLabel ?? s.mark})` : ''}`,
@@ -25,7 +26,9 @@ export class ChoiceBar {
         const r = e.currentTarget.getBoundingClientRect();
         this.onPick(s.id, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
       },
-    }, h('span', { class: 'snack__emoji', text: s.emoji, 'aria-hidden': 'true' }),
+    }, s.img
+      ? h('img', { class: 'snack__img', src: s.img, alt: '', draggable: 'false' })
+      : h('span', { class: 'snack__emoji', text: s.emoji, 'aria-hidden': 'true' }),
     s.label ? h('small', { class: 'snack__label', text: s.label, 'aria-hidden': 'true' }) : null,
     s.mark ? h('i', { class: 'snack__fav', text: s.mark, 'aria-hidden': 'true' }) : null)));
     this.el.hidden = false;

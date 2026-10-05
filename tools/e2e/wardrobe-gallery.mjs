@@ -1,11 +1,11 @@
 // Contact sheet: every pet wearing every wardrobe item (rows = pets, columns = items).
-//   node wardrobe-gallery.mjs <baseUrl> <out.png> [look=clay|classic]
+//   node wardrobe-gallery.mjs <baseUrl> <out.png> [look=clay|classic] [item,item,…]
 // Used to tune each species' hat anchor (propFit.hat) by eye.
 import { chromium, devices } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-const [base = 'http://localhost:8787/', out = 'tools/e2e/out/wardrobe.png', look = 'clay'] = process.argv.slice(2);
+const [base = 'http://localhost:8787/', out = 'tools/e2e/out/wardrobe.png', look = 'clay', only = ''] = process.argv.slice(2);
 mkdirSync(dirname(out), { recursive: true });
 
 const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
@@ -20,19 +20,26 @@ await page.addInitScript((lk) => {
 await page.goto(base);
 await page.waitForFunction(() => window.peek?.pose);
 
-const { species, items } = await page.evaluate(async () => ({
+const { species, items } = await page.evaluate(async (only) => ({
   species: (await import('./js/pet/species/index.js')).SPECIES.map((s) => s.id),
-  items: (await import('./js/core/wardrobe.js')).WARDROBE.map((i) => i.id),
-}));
+  items: (await import('./js/core/wardrobe.js')).WARDROBE.map((i) => i.id).filter((id) => !only || only.split(',').includes(id)),
+}), only);
+// Pictures load lazily: wait for every wardrobe picture before shooting.
+await page.evaluate(async () => {
+  const { WARDROBE } = await import('./js/core/wardrobe.js');
+  const { load } = await import('./js/fx/images.js');
+  await Promise.all(WARDROBE.map((i) => load(i.img)));
+});
 const shots = [];
 for (const id of species) {
   const row = [];
   for (const item of items) {
-    const clip = await page.evaluate(({ id, item }) => {
+    const clip = await page.evaluate(async ({ id, item }) => {
       const app = window.peek;
       if (app.species.id !== id) app.setSpecies(id, { quiet: true });
-      const slot = item === 'specs' || item === 'shades' ? 'face' : 'head';
-      app.play.outfits = { [id]: { head: slot === 'head' ? item : null, face: slot === 'face' ? item : null } };
+      const { itemById } = await import('./js/core/wardrobe.js');
+      app.play.outfits = { [id]: { [itemById(item).slot]: item } };
+      app.play.outfitCache = null;
       app.mood = { ...app.mood, reaction: { emotion: 'happy', until: Date.now() + 60_000, then: null } };
       app.ui.bubble.hidden = true;
       const r = app.renderer;

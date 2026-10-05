@@ -3,9 +3,8 @@
 
 import { newCatch, stepCatch, CATCH } from './catch.js';
 import { haptic } from '../native.js';
+import { drawTreat } from '../fx/treats.js';
 
-const EMOJI = { berry: '🍓', cookie: '🍪', onigiri: '🍙', icecream: '🍦', chili: '🌶️', star: '⭐' };
-const FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
 export class CatchGame {
   constructor(host) {
@@ -82,9 +81,6 @@ export class CatchGame {
 
   draw(ctx) {
     ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = `0.17px ${FONT}`;
     for (const i of this.state.items) {
       ctx.save();
       ctx.translate(i.x, i.y);
@@ -93,7 +89,7 @@ export class CatchGame {
         ctx.shadowColor = 'rgba(255,210,80,0.9)';
         ctx.shadowBlur = 12;
       }
-      ctx.fillText(EMOJI[i.kind], 0, 0);
+      drawTreat(ctx, i.kind, 0.17, '⭐');
       ctx.restore();
     }
     ctx.restore();

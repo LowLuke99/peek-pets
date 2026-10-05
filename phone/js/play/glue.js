@@ -4,14 +4,15 @@
 
 import { store } from '../store.js';
 import { $ } from '../ui/dom.js';
-import { wear, outfitFor, buy, migrateOwned } from '../core/wardrobe.js';
-import { photoFileName } from '../core/photo.js';
+import { WARDROBE, wear, outfitFor, buy, migrateOwned } from '../core/wardrobe.js';
+import { photoFileName, PHOTO_FRAMES, frameById, frameUrl } from '../core/photo.js';
 import { backdropById, backdropUrl, backdropLayout } from '../core/backdrops.js';
 import { pickLine } from '../behavior/lines.js';
 import { haptic } from '../native.js';
 import { SnackTime } from './snacks.js';
 import { MotionSense } from './motion.js';
-import { composePhoto, toBlob } from './photo.js';
+import { captureScene, framePhoto, toBlob } from './photo.js';
+import { preload } from '../fx/images.js';
 import { ChoiceBar } from '../ui/choiceBar.js';
 import { styleSheet, photoSheet } from '../ui/styleSheet.js';
 import { GAMES } from '../games/host.js';
@@ -48,6 +49,7 @@ export class PlayGlue {
     });
     this.backdropImg = null;
     this.outfitCache = null;
+    preload(WARDROBE.map((i) => i.img));
     window.addEventListener('resize', () => requestAnimationFrame(() => this.layoutBackdrop()));
     this.applyBackdrop();
     if (app.settings.motion) this.resumeMotionOnTap();
@@ -193,7 +195,6 @@ export class PlayGlue {
       owned: this.owned,
       coins: () => app.wallet.coins,
       onBuy: (entry) => this.buy(entry),
-      accent: app.species.palette.accent,
       petName: app.species.name,
       backdrop: app.settings.backdrop,
       onBackdrop: (id) => this.setBackdrop(id),
@@ -237,16 +238,14 @@ export class PlayGlue {
     const app = this.app;
     const r = app.renderer;
     const c = r.bodyCenter(app.species, app.pose);
-    let canvas;
+    let scene;
     try {
-      canvas = composePhoto({
+      scene = captureScene({
         canvases: [r.backCanvas, r.useGl ? r.glCanvas : null, r.canvas].filter(Boolean),
         center: r.toScreen(c.x, c.y),
         S: r.S,
         dpr: r.dpr,
         palette: app.species.palette,
-        name: app.species.name,
-        level: app.bond.level,
         backdrop: this.backdropImg?.complete && this.backdropImg.naturalWidth > 0 && this.layout ? { img: this.backdropImg, ...this.layout } : null,
       });
     } catch {
@@ -260,10 +259,17 @@ export class PlayGlue {
     app.sfx.play('shutter');
     haptic('tap');
     app.send('photo');
-    const blob = await toBlob(canvas);
+    const meta = { name: app.species.name, level: app.bond.level, accent: app.species.palette.accent, date: new Date() };
+    const render = async (frameId) => toBlob(await framePhoto(scene, frameById(frameId), meta));
+    const blob = await render('polaroid').catch(() => null);
     if (!blob) { app.ui.toast("Couldn't save the photo"); return; }
     this.lastPhoto = blob;
-    const sheet = photoSheet({ blob, fileName: photoFileName(app.species.name, new Date()), petName: app.species.name });
+    const sheet = photoSheet({
+      blob, render,
+      fileName: photoFileName(app.species.name, meta.date),
+      petName: app.species.name,
+      frames: PHOTO_FRAMES.map((f) => ({ id: f.id, name: f.name, thumb: frameUrl(f) })),
+    });
     app.ui.openSheet('photo', 'Snap!', sheet.el);
     app.sheetDispose = sheet.dispose;
   }

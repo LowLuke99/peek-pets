@@ -3,9 +3,8 @@
 
 import { newPop, stepPop, tapPop, bubbleX, POP } from './pop.js';
 import { haptic } from '../native.js';
+import { drawTreat } from '../fx/treats.js';
 
-const EMOJI = { berry: '🍓', cookie: '🍪', onigiri: '🍙', icecream: '🍦' };
-const FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
 export class PopGame {
   constructor(host) {
@@ -92,12 +91,12 @@ function sprite(kind) {
   ctx.strokeStyle = `rgba(${tint},0.85)`;
   ctx.lineWidth = 3;
   ctx.stroke();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `${Math.round(R * 1.05)}px ${FONT}`;
-  ctx.fillText(kind === 'gold' ? '⭐' : kind === 'rain' ? '🌧️' : EMOJI[kind], 0, R * 0.05);
+  ctx.save();
+  ctx.translate(0, R * 0.05);
+  const pictured = drawTreat(ctx, kind, Math.round(R * 1.05), kind === 'gold' ? '⭐' : kind === 'rain' ? '🌧️' : undefined);
+  ctx.restore();
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
   ctx.beginPath(); ctx.ellipse(-R * 0.42, -R * 0.45, R * 0.16, R * 0.08, -0.7, 0, Math.PI * 2); ctx.fill();
-  sprites.set(kind, c);
+  if (pictured || kind === 'gold' || kind === 'rain') sprites.set(kind, c); // treats: redraw until the picture loads
   return c;
 }

@@ -16,7 +16,7 @@ export const CATCH = Object.freeze({
   fallSpeed: (s) => 0.85 + 0.95 * progress(s),
 });
 
-const TREATS = ['berry', 'cookie', 'onigiri', 'icecream'];
+const TREATS = ['berry', 'cookie', 'onigiri', 'icecream', 'donut', 'cupcake', 'pancakes', 'watermelon', 'dumpling', 'taiyaki', 'boba'];
 
 function progress(s) {
   return Math.min(1, Math.max(0, s.time / CATCH.seconds));

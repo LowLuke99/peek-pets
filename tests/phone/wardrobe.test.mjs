@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { WARDROBE, isOwned, wear, outfitFor, itemById, buy } from '../../phone/js/core/wardrobe.js';
+import { WARDROBE, SLOTS, isOwned, wear, outfitFor, itemById, buy } from '../../phone/js/core/wardrobe.js';
 
 test('catalog: unique ids, known slots, a couple of free items, prices otherwise', () => {
   const ids = new Set(WARDROBE.map((i) => i.id));
   assert.equal(ids.size, WARDROBE.length);
-  for (const i of WARDROBE) assert.ok(['head', 'face'].includes(i.slot) && i.price >= 0, i.id);
+  for (const i of WARDROBE) assert.ok(SLOTS.includes(i.slot) && i.price >= 0, i.id);
   assert.ok(WARDROBE.filter((i) => i.price === 0).length >= 2, 'something to wear from the start');
   assert.ok(Object.isFrozen(WARDROBE));
 });
@@ -32,12 +32,12 @@ test('wear: sets a slot, tapping the same item takes it off, outfits are per pet
   const owned = ['party', 'shades', 'crown'];
   let o = {};
   o = wear(o, 'mochi', 'party', owned);
-  assert.deepEqual(outfitFor(o, 'mochi'), { head: 'party', face: null });
-  assert.deepEqual(outfitFor(o, 'pip'), { head: null, face: null });
+  assert.deepEqual(outfitFor(o, 'mochi'), { head: 'party', face: null, neck: null });
+  assert.deepEqual(outfitFor(o, 'pip'), { head: null, face: null, neck: null });
   const before = o;
   o = wear(o, 'mochi', 'shades', owned);
-  assert.deepEqual(outfitFor(o, 'mochi'), { head: 'party', face: 'shades' });
-  assert.deepEqual(outfitFor(before, 'mochi'), { head: 'party', face: null }, 'pure');
+  assert.deepEqual(outfitFor(o, 'mochi'), { head: 'party', face: 'shades', neck: null });
+  assert.deepEqual(outfitFor(before, 'mochi'), { head: 'party', face: null, neck: null }, 'pure');
   o = wear(o, 'mochi', 'crown', owned);
   assert.equal(outfitFor(o, 'mochi').head, 'crown', 'same slot replaces');
   o = wear(o, 'mochi', 'crown', owned);
@@ -47,8 +47,8 @@ test('wear: sets a slot, tapping the same item takes it off, outfits are per pet
 test('wear refuses items you don\'t own; outfitFor drops junk from storage', () => {
   assert.deepEqual(wear({}, 'mochi', 'wizard', []), {});
   assert.deepEqual(wear({}, 'mochi', 'nope', []), {});
-  assert.deepEqual(outfitFor({ mochi: { head: 'specs', face: '<img>' } }, 'mochi'), { head: null, face: null });
-  assert.deepEqual(outfitFor('garbage', 'mochi'), { head: null, face: null });
+  assert.deepEqual(outfitFor({ mochi: { head: 'specs', face: '<img>' } }, 'mochi'), { head: null, face: null, neck: null });
+  assert.deepEqual(outfitFor('garbage', 'mochi'), { head: null, face: null, neck: null });
 });
 
 import { migrateOwned } from '../../phone/js/core/wardrobe.js';
@@ -59,4 +59,14 @@ test('updating from level-unlocks keeps everything you had: worn items, backdrop
   assert.ok(!owned.includes('wizard'), 'level 6 item stays in the shop');
   assert.ok(!owned.includes('bow'), 'free items need no entry');
   assert.deepEqual(migrateOwned(null, 'none', 1), []);
+});
+
+test('the bandana goes in its own neck slot, alongside a hat and glasses', () => {
+  const owned = ['bandana', 'cowboy', 'monocle'];
+  let o = wear({}, 'bao', 'cowboy', owned);
+  o = wear(o, 'bao', 'monocle', owned);
+  o = wear(o, 'bao', 'bandana', owned);
+  assert.deepEqual(outfitFor(o, 'bao'), { head: 'cowboy', face: 'monocle', neck: 'bandana' });
+  assert.deepEqual(outfitFor({ bao: { neck: 'crown' } }, 'bao').neck, null, 'a hat is not a neck item');
+  assert.ok(migrateOwned({ bao: { neck: 'bandana' } }, 'none', 1).includes('bandana'));
 });
