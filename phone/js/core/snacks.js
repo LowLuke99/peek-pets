@@ -35,6 +35,7 @@ const FAVOURITES = Object.freeze({
   bao: 'pancakes',
   mallow: 'cupcake',
   cap: 'watermelon',
+  zoe: 'cookie', // the real Zoe would agree
 });
 
 export const FULL_AFTER = 4;

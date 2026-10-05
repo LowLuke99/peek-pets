@@ -11,6 +11,7 @@
 | **Developers** | Double-click `Start Peek Pets.command` (installs .NET 8 into `~/.dotnet` if missing). |
 | **Code** | `companion.core/` (shared, OS seams in `Platform/`), `companion/` (WPF), `companion.mac/` (Avalonia). Windows behaviour unchanged. |
 | **CI** | `companion.yml`: Windows build + tests, Mac tests + package + smoke test + installer test, release on `main`. |
+| **New pet: Zoe** | Luke's black French bulldog, from a photo: glossy black clay coat, bat ears on springs (perk when surprised, airplane ears when sleepy), grizzled sugar-face muzzle, jowls that jiggle on landings, white chest blaze and white toes, head cocks toward the cursor, happy snort puffs. Favourite snack: cookie. |
 
 ### Verified
 | Check | Result |

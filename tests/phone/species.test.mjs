@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import { SPECIES, getSpecies } from '../../phone/js/pet/species/index.js';
 import { PartBuilder, scaling, MAX_BALLS } from '../../phone/js/gl/parts.js';
 
-const NEW_IDS = ['bloop', 'bao', 'mallow', 'cap'];
+const NEW_IDS = ['zoe'];
+// Every recent pet must keep passing the shape checks, not only the one tagged NEW.
+const RECENT_IDS = ['bloop', 'bao', 'mallow', 'cap', 'zoe'];
 
 /** A rig-shaped pose with sensible defaults (see pet/rig.js). */
 function pose(over = {}) {
@@ -37,16 +39,17 @@ function fakeCtx() {
   });
 }
 
-test('the four newest pets are registered and are the only ones tagged NEW', () => {
+test('the newest pet is registered and is the only one tagged NEW', () => {
   const ids = SPECIES.map((s) => s.id);
   for (const id of NEW_IDS) assert.ok(ids.includes(id), id);
   assert.deepEqual(SPECIES.filter((s) => s.isNew).map((s) => s.id), NEW_IDS);
   assert.equal(new Set(ids).size, ids.length, 'ids are unique');
   assert.equal(getSpecies('bao').name, 'Bao');
+  assert.equal(getSpecies('zoe').name, 'Zoe');
 });
 
-test('new pets have everything the app and wardrobe expect', () => {
-  for (const id of NEW_IDS) {
+test('recent pets have everything the app and wardrobe expect', () => {
+  for (const id of RECENT_IDS) {
     const s = getSpecies(id);
     assert.ok(s.name && s.blurb, id);
     for (const k of ['bgA', 'bgB', 'accent', 'pedestal']) assert.match(s.palette[k], /^#[0-9A-F]{6}$/i, `${id} ${k}`);
@@ -59,10 +62,10 @@ test('new pets have everything the app and wardrobe expect', () => {
   }
 });
 
-test('new pets build finite GL parts in every mood', () => {
+test('recent pets build finite GL parts in every mood', () => {
   const moods = [pose(), pose({ emotion: 'joy', happy: 1, smile: 1, mouthOpen: 0.6 }), pose({ emotion: 'sleepy', energy: 0.1, eyeL: 0.3, eyeR: 0.3 }),
     pose({ emotion: 'surprised', mouthO: 0.95, energy: 0.9 }), pose({ dancing: true, wave: 1, lean: { x: 0.8, y: -0.3 } })];
-  for (const id of NEW_IDS) {
+  for (const id of RECENT_IDS) {
     const species = getSpecies(id);
     for (const p of moods) {
       const b = new PartBuilder().reset(scaling(300));
@@ -78,7 +81,7 @@ test('new pets build finite GL parts in every mood', () => {
 });
 
 test('the classic 2D paths run without throwing', () => {
-  for (const id of NEW_IDS) {
+  for (const id of RECENT_IDS) {
     const species = getSpecies(id);
     const p = pose({ emotion: 'joy', happy: 1 });
     const s = settle(species, p, 0.5);
@@ -98,7 +101,7 @@ test('Bloop puffs up when surprised and deflates when sleepy', () => {
 
 test('ambient particles only use known kinds', () => {
   const kinds = new Set(['bubble', 'steam', 'sparkle']);
-  for (const id of NEW_IDS) {
+  for (const id of RECENT_IDS) {
     const species = getSpecies(id);
     if (!species.ambient) continue;
     const emitted = [];
@@ -107,4 +110,19 @@ test('ambient particles only use known kinds', () => {
     assert.ok(emitted.length > 0, id);
     assert.ok(emitted.every((k) => kinds.has(k)), `${id}: ${[...new Set(emitted)]}`);
   }
+});
+
+test('Zoe perks her ears when surprised and splays them when sleepy', () => {
+  const zoe = getSpecies('zoe');
+  const spread = (s) => s.earR.a - s.earL.a; // total outward angle of both ears
+  const calm = spread(settle(zoe, pose()));
+  const surprised = spread(settle(zoe, pose({ emotion: 'surprised', brow: 1, mouthO: 0.95 })));
+  const sleepy = spread(settle(zoe, pose({ energy: 0.1 })));
+  assert.ok(surprised < calm - 0.2, `surprised ${surprised} vs calm ${calm}`);
+  assert.ok(sleepy > calm + 0.3, `sleepy ${sleepy} vs calm ${calm}`);
+});
+
+test('Zoe loves cookies', async () => {
+  const { favouriteOf } = await import('../../phone/js/core/snacks.js');
+  assert.equal(favouriteOf('zoe'), 'cookie');
 });

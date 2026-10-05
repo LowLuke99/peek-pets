@@ -102,6 +102,7 @@ The PC window also has **Say something**: type a line and the pet says it on the
 | **Pebble** *(new)* | mossy stone golem with a sprout on a spring |
 | **Lumi** *(new)* | fuzzy lilac moth on flapping glassy wings (glows more at night) |
 | **Opal** *(new)* | chubby crystal dragon hatchling with shimmering horns |
+| **Zoe** *(new)* | black French bulldog with bat ears, a frosted sugar face and a white bib (after Luke's dog) |
 
 **What's new in v0.3 (20-second video):** [docs/media/v3-whats-new.mp4](docs/media/v3-whats-new.mp4)
 
