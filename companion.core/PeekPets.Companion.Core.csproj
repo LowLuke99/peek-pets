@@ -10,7 +10,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>PeekPets.Companion.Core</AssemblyName>
     <RootNamespace>PeekPets.Companion</RootNamespace>
-    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

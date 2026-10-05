@@ -19,7 +19,14 @@ curl -fsSL https://raw.githubusercontent.com/LowLuke99/peek-pets/main/tools/mac/
 It installs *Peek Pets Companion* in your Applications folder and opens it. If macOS asks to
 accept incoming network connections, click **Allow**. Details: [docs/MAC-COMPANION.md](docs/MAC-COMPANION.md).
 
-**On a Windows PC**
+**On a Windows PC** (one line in PowerShell, no .NET needed)
+```powershell
+irm https://raw.githubusercontent.com/LowLuke99/peek-pets/main/tools/windows/install-companion.ps1 | iex
+```
+It installs *Peek Pets Companion* with Start menu and Desktop shortcuts and opens it.
+**Updating** (either computer): run the same line again. See [docs/UPDATING.md](docs/UPDATING.md).
+
+Or from this folder:
 1. Double-click **`Peek Pets Companion`** on the Desktop (or `Start Peek Pets.cmd` in this folder).
 2. If Windows asks about network access, tick **Private** *and* **Public** and click **Allow**.
    (Your Wi-Fi "PrettyFlyForAWiFi" is set to *Public*.) If the window shows an orange
@@ -126,6 +133,7 @@ npm test                                  # phone logic (102 tests)
 dotnet test companion.tests               # companion, Windows + Mac (115 tests)
 ./tools/mac/start-companion.sh            # Mac companion from source (or double-click Start Peek Pets.command)
 ./tools/mac/package-companion.sh          # Mac .app + zips in dist/mac (CI publishes them to the companion-latest release)
+# ship an update to Mac + Windows: bump Directory.Build.props, merge to main (docs/UPDATING.md)
 (cd server/chat && npm run dev)           # local chat server on :8790, then: (cd server/chat && npm run e2e)  # 48 checks
 node tools/e2e/live-test.mjs chromium     # end-to-end with your real cursor (moves your mouse!)
 node tools/e2e/app-mode-test.mjs          # installable app + offline
@@ -135,7 +143,7 @@ node tools/e2e/games-test.mjs             # Treat Catch, Cup Shuffle, Bubble Pop
 node tools/e2e/friends-test.mjs           # two phones through the local chat server
 node tools/appstore/screenshots.mjs       # App Store screenshots → docs/appstore/
 node tools/video/film.mjs && node tools/video/render.mjs   # re-make the what's-new video
-powershell -File tools/publish.ps1        # standalone Windows companion for a friend (no .NET needed)
+powershell -File tools/publish.ps1        # standalone Windows companion zip in dist/windows (no .NET needed)
 ```
 The companion serves `phone/` straight from this checkout, so edits show up on the phone after a refresh.
 Protocol: [docs/PROTOCOL.md](docs/PROTOCOL.md) · What's done and what's next: [docs/BUILD-RECORD.md](docs/BUILD-RECORD.md)

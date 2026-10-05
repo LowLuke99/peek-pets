@@ -1,18 +1,19 @@
-# Peek Pets Companion on both desktops.
-#  * windows: builds the WPF companion and runs the companion tests (guards the Windows app,
-#    which can't run on a Mac).
+# Peek Pets Companion on both desktops. Ship an update = bump Directory.Build.props and merge
+# to main (docs/UPDATING.md).
+#  * windows: builds the WPF companion, runs the companion tests, packages the standalone exe,
+#    smoke-tests it and the one-line installer, uploads the zip.
 #  * mac: runs the same tests, packages "Peek Pets Companion.app" for Apple silicon + Intel,
 #    smoke-tests the bundle and the one-line installer, uploads the zips.
-#  * release: on main (or a manual run) replaces the assets of the "companion-latest"
-#    release that tools/mac/install-companion.sh downloads.
+#  * release: on main replaces the assets of the "companion-latest" release that both
+#    one-line installers (tools/mac/install-companion.sh, tools/windows/install-companion.ps1) download.
 name: Companion (Windows + Mac)
 on:
   workflow_dispatch:
   pull_request:
-    paths: ['companion/**', 'companion.core/**', 'companion.mac/**', 'companion.tests/**', 'phone/**', 'tools/mac/**', '.github/workflows/companion.yml']
+    paths: ['companion/**', 'companion.core/**', 'companion.mac/**', 'companion.tests/**', 'phone/**', 'tools/mac/**', 'tools/windows/**', 'tools/publish.ps1', 'Directory.Build.props', '.github/workflows/companion.yml']
   push:
     branches: [main]
-    paths: ['companion/**', 'companion.core/**', 'companion.mac/**', 'companion.tests/**', 'phone/**', 'tools/mac/**', '.github/workflows/companion.yml']
+    paths: ['companion/**', 'companion.core/**', 'companion.mac/**', 'companion.tests/**', 'phone/**', 'tools/mac/**', 'tools/windows/**', 'tools/publish.ps1', 'Directory.Build.props', '.github/workflows/companion.yml']
 
 permissions:
   contents: read
@@ -30,6 +31,36 @@ jobs:
         run: dotnet build companion -c Release
       - name: Companion tests
         run: dotnet test companion.tests -c Release
+      - name: Package the standalone exe
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tools\publish.ps1
+      - name: One-line installer installs the zip (Windows PowerShell, like friends have)
+        shell: powershell
+        run: |
+          $env:PEEKPETS_COMPANION_URL = "$PWD\dist\windows\PeekPets-Companion-windows-x64.zip"
+          $env:PEEKPETS_SUMS_URL = "$PWD\dist\windows\SHA256SUMS"
+          $env:PEEKPETS_INSTALL_DIR = "$env:RUNNER_TEMP\PeekPets"
+          $env:PEEKPETS_NO_OPEN = '1'
+          Get-Content -Raw tools\windows\install-companion.ps1 | Invoke-Expression
+          if (-not (Test-Path "$env:RUNNER_TEMP\PeekPets\PeekPets.Companion.exe")) { throw 'exe not installed' }
+          if (-not (Test-Path "$env:RUNNER_TEMP\PeekPets\wwwroot\index.html")) { throw 'phone app not installed' }
+          if (-not (Test-Path "$env:RUNNER_TEMP\PeekPets\Allow-Phone-Access.ps1")) { throw 'firewall helper missing (the Fix it button needs it)' }
+      - name: Smoke test the installed exe (serves the phone app and its API)
+        shell: powershell
+        run: |
+          $p = Start-Process "$env:RUNNER_TEMP\PeekPets\PeekPets.Companion.exe" -ArgumentList '--loopback','--no-https','--port','18787','--settings',"$env:RUNNER_TEMP\c.json" -PassThru
+          $ok = $false
+          foreach ($i in 1..30) { try { $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18787/api/info; $ok = $true; break } catch { Start-Sleep 1 } }
+          if (-not $ok) { throw 'companion did not answer' }
+          if ($r.Content -notmatch '"app":"peek-pets"') { throw "unexpected /api/info: $($r.Content)" }
+          Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18787/index.html | Out-Null
+          Write-Host $r.Content
+          Stop-Process -Id $p.Id -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: peek-pets-companion-windows
+          path: dist/windows/*.zip
+          retention-days: 14
 
   mac:
     runs-on: macos-15
@@ -46,6 +77,8 @@ jobs:
           for f in tools/mac/*.sh "Start Peek Pets.command"; do
             test -x "$f" || { echo "not executable: $f"; exit 1; }
             if grep -q $'\r' "$f"; then echo "CRLF line endings in $f"; exit 1; fi
+            # "$var…" breaks under some locales (bash reads the … bytes as part of the name): use "${var}…"
+            if LC_ALL=C grep -nE '\$[A-Za-z_][A-Za-z0-9_]*[^ -~]' "$f"; then echo "brace the variable before non-ASCII text in $f"; exit 1; fi
           done
       - name: Companion tests
         run: dotnet test companion.tests -c Release
@@ -86,19 +119,30 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: Directory.Build.props
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v4
         with:
-          name: peek-pets-companion-mac
+          pattern: peek-pets-companion-*
           path: dist
+          merge-multiple: true
+      - name: Checksums for every download
+        run: cd dist && sha256sum *.zip > SHA256SUMS && cat SHA256SUMS
       - name: Publish to the companion-latest release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          notes="Peek Pets Companion for Mac, built from ${GITHUB_SHA::7}. Install: curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/tools/mac/install-companion.sh | bash"
+          version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props 2>/dev/null | head -1)"
+          notes="Peek Pets Companion ${version} for Mac and Windows, built from ${GITHUB_SHA::7}.
+
+          Mac: curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/tools/mac/install-companion.sh | bash
+          Windows (PowerShell): irm https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/tools/windows/install-companion.ps1 | iex"
           if gh release view companion-latest >/dev/null 2>&1; then
-            gh release edit companion-latest --notes "$notes" --prerelease
+            gh release edit companion-latest --title "Peek Pets Companion (latest)" --notes "$notes" --prerelease
           else
-            gh release create companion-latest --title "Peek Pets Companion (Mac, latest)" --notes "$notes" --prerelease --target "$GITHUB_SHA"
+            gh release create companion-latest --title "Peek Pets Companion (latest)" --notes "$notes" --prerelease --target "$GITHUB_SHA"
           fi
           gh release upload companion-latest dist/*.zip dist/SHA256SUMS --clobber

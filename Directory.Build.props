@@ -1,0 +1,7 @@
+<Project>
+  <!-- One version for the whole companion (Windows + Mac). Bump it here to ship an update:
+       see docs/UPDATING.md. It shows in the companion's /api/info and Bonjour record. -->
+  <PropertyGroup>
+    <Version>0.5.0</Version>
+  </PropertyGroup>
+</Project>

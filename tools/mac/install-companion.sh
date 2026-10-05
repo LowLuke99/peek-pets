@@ -41,7 +41,7 @@ expected="$(awk -v f="$zip_name" '$2 == f || $2 == "*"f { print $1 }' "$tmp/SHA2
 actual="$(shasum -a 256 "$tmp/companion.zip" | awk '{ print $1 }')"
 [[ -n "$expected" && "$expected" == "$actual" ]] || fail "Checksum mismatch for $zip_name: the download is damaged or not the published build. Nothing was installed."
 
-say "Installing to $DEST…"
+say "Installing to ${DEST}…"
 mkdir -p "$DEST"
 if pgrep -f "$APP_NAME.app/Contents/MacOS/" >/dev/null 2>&1; then
   osascript -e "quit app \"$APP_NAME\"" >/dev/null 2>&1 || true

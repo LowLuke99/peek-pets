@@ -18,7 +18,7 @@ your iPhone over Wi-Fi. It runs on **Windows and macOS**. This page is the Mac o
 It lands in the **Applications folder in your home folder** (`~/Applications`), so no admin
 password is needed. Open it again later from there or from Spotlight.
 
-* **Update:** run the same line again.
+* **Update:** run the same line again ([UPDATING.md](UPDATING.md): one release for Mac and Windows).
 * **Remove:** drag *Peek Pets Companion* from `~/Applications` to the Bin. Settings live in
   `~/Library/Application Support/PeekPets` (delete that folder too for a clean slate).
 * Needs macOS 12 or newer, Apple silicon or Intel. No .NET or developer tools.

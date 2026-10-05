@@ -16,7 +16,7 @@ read -r -a ARCHES <<< "${ARCHES[*]}"
 APP_NAME="Peek Pets Companion"
 EXE="PeekPets.Companion.Mac"
 BUNDLE_ID="com.lowluke.peekpets.companion"
-VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' companion.mac/PeekPets.Companion.Mac.csproj | head -1)"
+VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -1)"
 BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 
 say() { printf '\033[1;35m🐾 %s\033[0m\n' "$*"; }
@@ -25,7 +25,7 @@ for arch in "${ARCHES[@]}"; do
   case "$arch" in arm64|x64) ;; *) echo "Unknown arch: $arch (use arm64 or x64)"; exit 2 ;; esac
   out="dist/mac/$arch"
   app="$out/$APP_NAME.app"
-  say "Publishing $arch…"
+  say "Publishing ${arch}…"
   rm -rf "$out"
   dotnet publish companion.mac -c Release -r "osx-$arch" --self-contained true \
     -p:UseAppHost=true -p:DebugType=none -o "$out/publish" -v q --nologo

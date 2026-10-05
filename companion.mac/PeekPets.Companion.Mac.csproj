@@ -10,7 +10,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>PeekPets.Companion.Mac</AssemblyName>
     <RootNamespace>PeekPets.Companion.Mac</RootNamespace>
-    <Version>0.2.0</Version>
     <Product>Peek Pets Companion</Product>
     <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
