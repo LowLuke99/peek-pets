@@ -1,0 +1,104 @@
+# Peek Pets Companion on both desktops.
+#  * windows: builds the WPF companion and runs the companion tests (guards the Windows app,
+#    which can't run on a Mac).
+#  * mac: runs the same tests, packages "Peek Pets Companion.app" for Apple silicon + Intel,
+#    smoke-tests the bundle and the one-line installer, uploads the zips.
+#  * release: on main (or a manual run) replaces the assets of the "companion-latest"
+#    release that tools/mac/install-companion.sh downloads.
+name: Companion (Windows + Mac)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['companion/**', 'companion.core/**', 'companion.mac/**', 'companion.tests/**', 'phone/**', 'tools/mac/**', '.github/workflows/companion.yml']
+  push:
+    branches: [main]
+    paths: ['companion/**', 'companion.core/**', 'companion.mac/**', 'companion.tests/**', 'phone/**', 'tools/mac/**', '.github/workflows/companion.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build the Windows companion
+        run: dotnet build companion -c Release
+      - name: Companion tests
+        run: dotnet test companion.tests -c Release
+
+  mac:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # build number = commit count
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Scripts keep LF endings and the executable bit
+        run: |
+          for f in tools/mac/*.sh "Start Peek Pets.command"; do
+            test -x "$f" || { echo "not executable: $f"; exit 1; }
+            if grep -q $'\r' "$f"; then echo "CRLF line endings in $f"; exit 1; fi
+          done
+      - name: Companion tests
+        run: dotnet test companion.tests -c Release
+      - name: Developer launcher builds from source
+        run: ./tools/mac/start-companion.sh --check
+      - name: Package the app (arm64 + x64)
+        run: ./tools/mac/package-companion.sh arm64 x64
+      - name: Smoke test the bundle (serves the phone app and its API)
+        run: |
+          app="dist/mac/arm64/Peek Pets Companion.app"
+          plutil -lint "$app/Contents/Info.plist"
+          codesign --verify --deep "$app"
+          "$app/Contents/MacOS/PeekPets.Companion.Mac" --loopback --no-https --port 18787 --settings "$RUNNER_TEMP/c.json" &
+          pid=$!
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:18787/api/info && break; sleep 1; done
+          curl -sf http://127.0.0.1:18787/api/info | grep -q '"app":"peek-pets"'
+          curl -sf -o /dev/null http://127.0.0.1:18787/index.html
+          kill $pid
+      - name: One-line installer installs the zip
+        run: |
+          PEEKPETS_COMPANION_URL="file://$PWD/dist/mac/PeekPets-Companion-mac-arm64.zip" \
+          PEEKPETS_SUMS_URL="file://$PWD/dist/mac/SHA256SUMS" \
+          PEEKPETS_INSTALL_DIR="$RUNNER_TEMP/apps" PEEKPETS_NO_OPEN=1 bash tools/mac/install-companion.sh
+          codesign --verify --deep "$RUNNER_TEMP/apps/Peek Pets Companion.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: peek-pets-companion-mac
+          path: |
+            dist/mac/*.zip
+            dist/mac/SHA256SUMS
+          retention-days: 14
+
+  release:
+    # Only main publishes: the one-line installer downloads whatever is in this release.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [windows, mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: peek-pets-companion-mac
+          path: dist
+      - name: Publish to the companion-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          notes="Peek Pets Companion for Mac, built from ${GITHUB_SHA::7}. Install: curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/tools/mac/install-companion.sh | bash"
+          if gh release view companion-latest >/dev/null 2>&1; then
+            gh release edit companion-latest --notes "$notes" --prerelease
+          else
+            gh release create companion-latest --title "Peek Pets Companion (Mac, latest)" --notes "$notes" --prerelease --target "$GITHUB_SHA"
+          fi
+          gh release upload companion-latest dist/*.zip dist/SHA256SUMS --clobber

@@ -1,5 +1,31 @@
 # Build record: Peek Pets
 
+## v0.5: the companion runs on Mac too (2026-10-05)
+
+*Request: "make it also run on Mac; many friends use Macs; put it on GitHub; easy to set up on a new Mac."*
+
+| | |
+|---|---|
+| **Mac companion** | Same window as Windows (Phone tab): QR pairing, cursor/clicks/all monitors, battery + away facts, Say something, HTTPS app mode, Bonjour. Powers and the load fact come in Phase 2. |
+| **Install for friends** | One Terminal line (`tools/mac/install-companion.sh`) downloads the `.app` from the `companion-latest` release into `~/Applications`. Self-contained, no .NET, Apple silicon + Intel. |
+| **Developers** | Double-click `Start Peek Pets.command` (installs .NET 8 into `~/.dotnet` if missing). |
+| **Code** | `companion.core/` (shared, OS seams in `Platform/`), `companion/` (WPF), `companion.mac/` (Avalonia). Windows behaviour unchanged. |
+| **CI** | `companion.yml`: Windows build + tests, Mac tests + package + smoke test + installer test, release on `main`. |
+
+### Verified
+| Check | Result |
+|---|---|
+| Companion tests on macOS | **115/115** (98 existing + 17 Mac: displays, pmset, Bonjour TXT, key file permissions, live cursor) |
+| Phone tests | 113/113 |
+| Windows app compiles against the core (on the Mac) | 0 errors, 0 warnings |
+| Mac app on a real Mac: pair, stream cursor, HTTPS chain to the local CA, Bonjour `_peekpets._tcp` | **pass** |
+| `.app` bundle: serves the phone app, signature verifies; installer from the zip | **pass** |
+
+### Not verified yet
+* The Windows app running on Windows (CI job runs on the first push).
+* A real iPhone against the Mac companion (the browser pane and a protocol client stood in).
+* The `companion-latest` release (created on the first `main` build).
+
 ## v4: games, coins & shop, friends & chat, App Store prep (2026-10-04, afternoon)
 
 *Your requests while at work: built-in games, XP from games (not from spamming the pet), a

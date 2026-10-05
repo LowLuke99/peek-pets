@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using PeekPets.Companion.Facts;
+using PeekPets.Companion.Platform;
 using PeekPets.Companion.Powers;
 using PeekPets.Companion.Sensors;
 
@@ -43,7 +44,7 @@ public sealed class PetServer : IAsyncDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly RateLimiter _messageLimits = new(() => DateTime.UtcNow);
     private WebApplication? _app;
-    private MdnsAdvertiser? _mdns;
+    private IServiceAdvertiser? _mdns;
     public string? MdnsStatus { get; private set; }
 
     public string PhoneRoot { get; }
@@ -172,9 +173,10 @@ public sealed class PetServer : IAsyncDisposable
     private void Advertise()
     {
         var lan = CurrentLan();
-        _mdns = new MdnsAdvertiser();
-        var txt = MdnsAdvertiser.TxtRecord(Environment.MachineName, lan, Port, SecureEnabled ? SecurePort : 0, ProtocolVersion, Version);
-        MdnsStatus = _mdns.Start(Environment.MachineName, lan, Port, txt) ? "advertising _peekpets._tcp" : $"not advertised ({_mdns.Error})";
+        _mdns = PlatformServices.CreateAdvertiser();
+        if (_mdns is null) { MdnsStatus = "not advertised (unsupported on this OS)"; Log?.Invoke($"Bonjour: {MdnsStatus}"); return; }
+        var txt = Bonjour.TxtRecord(PlatformServices.ComputerName, lan, Port, SecureEnabled ? SecurePort : 0, ProtocolVersion, Version);
+        MdnsStatus = _mdns.Start(Environment.MachineName, lan, Port, txt) ? $"advertising {Bonjour.ServiceType}" : $"not advertised ({_mdns.Error})";
         Log?.Invoke($"Bonjour: {MdnsStatus}");
     }
 
@@ -399,7 +401,7 @@ public sealed class PetServer : IAsyncDisposable
             t = "auth_ok",
             token = result.NewToken, // only present on first pairing
             deviceId = result.Device!.Id,
-            pc = Environment.MachineName,
+            pc = PlatformServices.ComputerName,
             version = Version,
             shared = SharedMap(),
             facts = _facts.Snapshot(),
@@ -541,5 +543,6 @@ public sealed class PetServer : IAsyncDisposable
         _facts.Dispose();
         Powers?.Dispose();
         _mdns?.Dispose();
+        _certs?.Dispose();
     }
 }

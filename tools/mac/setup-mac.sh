@@ -7,7 +7,7 @@
 #   ./tools/mac/setup-mac.sh --no-open            don't open Xcode at the end
 #   ./tools/mac/setup-mac.sh --ci                 non-interactive check (used by GitHub Actions)
 #
-# The Windows PC keeps running "Peek Pets Companion"; the Mac only builds + installs the app.
+# The companion runs on the Windows PC or on this Mac (Start Peek Pets.command); this script builds the iPhone app.
 set -euo pipefail
 
 UPDATE=0 OPEN=1 CI_MODE=0 BUNDLE_ID=""
@@ -97,7 +97,8 @@ cat <<'NEXT'
     4. Press ▶ (Run). First time only, on the iPhone:
          Settings → Privacy & Security → Developer Mode → On (restarts), and
          Settings → General → VPN & Device Management → your Apple ID → Trust.
-    5. Open Peek Pets, allow "Local Network", tap your PC, type the code from the companion window.
+    5. Open Peek Pets, allow "Local Network", tap your computer, type the code from the companion window.
+       No Windows PC? Run the companion on this Mac: double-click "Start Peek Pets.command".
 
   Free Apple IDs: the app lasts 7 days. Just press ▶ again in Xcode to renew (your pet is kept).
   Later updates:  ./tools/mac/setup-mac.sh --update   then ▶ in Xcode.

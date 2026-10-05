@@ -1,0 +1,117 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PeekPets.Companion.Mac.MainWindow"
+        Title="Peek Pets Companion" Width="980" Height="720" MinWidth="780" MinHeight="580"
+        Background="{StaticResource Paper}" Foreground="{StaticResource Ink}" FontSize="14"
+        WindowStartupLocation="CenterScreen">
+    <!-- Mirrors the Windows companion's Phone tab (companion/MainWindow.xaml). -->
+    <Grid Margin="22" ColumnDefinitions="340,22,*">
+
+        <!-- Left: identity + pairing -->
+        <DockPanel Grid.Column="0" LastChildFill="True">
+            <Grid DockPanel.Dock="Top" Margin="2,0,0,16" ColumnDefinitions="Auto,*">
+                <!-- A tiny Mochi that watches your cursor right here on the Mac too. -->
+                <Canvas x:Name="MiniPet" Width="64" Height="56" Margin="0,0,14,0">
+                    <Ellipse Canvas.Left="4" Canvas.Top="49" Width="56" Height="7" Fill="#2A7A3B2A"/>
+                    <Path Fill="#F2735F" Data="M32,2 C50,2 60,18 62,34 C64,48 54,52 32,52 C10,52 0,48 2,34 C4,18 14,2 32,2 Z"/>
+                    <Path Fill="#FFE9DD" Data="M32,13 C46,13 54,19 54,27 C54,36 45,40 32,40 C19,40 10,36 10,27 C10,19 18,13 32,13 Z"/>
+                    <Ellipse Canvas.Left="15" Canvas.Top="19" Width="14" Height="14" Fill="White"/>
+                    <Ellipse Canvas.Left="35" Canvas.Top="19" Width="14" Height="14" Fill="White"/>
+                    <Ellipse x:Name="PupilL" Canvas.Left="17" Canvas.Top="21" Width="10" Height="10" Fill="#3A231E"/>
+                    <Ellipse x:Name="PupilR" Canvas.Left="37" Canvas.Top="21" Width="10" Height="10" Fill="#3A231E"/>
+                    <Path Stroke="#3A231E" StrokeThickness="1.4" StrokeLineCap="Round" Data="M29.5,34 Q32,36.2 34.5,34"/>
+                </Canvas>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Peek Pets" FontSize="24" FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <Ellipse x:Name="StatusDot" Width="9" Height="9" Fill="{StaticResource Warn}" Margin="0,1,7,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="StatusText" Text="Starting…" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" MaxWidth="230"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <Border Classes="card" VerticalAlignment="Top">
+                <StackPanel>
+                    <TextBlock Text="PAIR YOUR PHONE" Classes="heading"/>
+                    <Border Background="White" CornerRadius="14" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="10" HorizontalAlignment="Center">
+                        <Image x:Name="QrImage" Width="196" Height="196" RenderOptions.BitmapInterpolationMode="None"/>
+                    </Border>
+                    <TextBlock Text="Point your iPhone camera at the code, tap the link, and you're paired. Same Wi-Fi needed."
+                               Classes="muted" Margin="0,12,0,10" TextAlignment="Center"/>
+                    <TextBlock Text="Or open this in Safari" FontSize="12" Foreground="{StaticResource Muted}"/>
+                    <SelectableTextBlock x:Name="UrlText" FontSize="15" FontWeight="SemiBold" Margin="0,2,0,8"/>
+                    <TextBlock Text="and enter code" FontSize="12" Foreground="{StaticResource Muted}"/>
+                    <TextBlock x:Name="CodeText" Text="––– –––" FontSize="34" FontWeight="Bold" FontFamily="Menlo, monospace" Foreground="{StaticResource Coral}"/>
+                    <TextBlock x:Name="ExpiryText" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,12"/>
+                    <WrapPanel>
+                        <Button Content="New code" Classes="pill" Click="NewCode_Click" Margin="0,0,8,8"/>
+                        <Button Content="Copy link" Classes="pill" Click="CopyLink_Click" Margin="0,0,8,8"/>
+                        <Button Content="Open here" Classes="pill" Click="OpenHere_Click" Margin="0,0,8,8" ToolTip.Tip="Open the pet in this Mac's browser to test"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </DockPanel>
+
+        <!-- Right: phone, sharing, say, network, activity -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="14">
+                <Border x:Name="InstallCard" Classes="card">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Background="White" CornerRadius="10" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="6" VerticalAlignment="Top">
+                            <Image x:Name="InstallQr" Width="104" Height="104" RenderOptions.BitmapInterpolationMode="None"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="16,0,0,0">
+                            <TextBlock Text="OPTIONAL · INSTALL AS AN APP" Classes="heading"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="13"
+                                       Text="Scan this to turn the pet into a home-screen app that opens even when this Mac is off. It walks you through trusting a private certificate that only works on your home network."/>
+                            <SelectableTextBlock x:Name="SecureText" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="CONNECTED PHONES" Classes="heading"/>
+                            <TextBlock x:Name="RateText" HorizontalAlignment="Right" FontSize="12" Foreground="{StaticResource Muted}"/>
+                        </Grid>
+                        <TextBlock x:Name="NoPhonesText" Text="No phones yet. Scan the code to say hi." Foreground="{StaticResource Muted}"/>
+                        <StackPanel x:Name="PhoneList"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="SHARING WITH YOUR PET" Classes="heading"/>
+                        <TextBlock Text="Only what's switched on leaves this Mac, and only to paired phones on your local network. Screen contents and keys are never read."
+                                   Classes="muted" Margin="0,-4,0,8"/>
+                        <StackPanel x:Name="ShareToggles" Spacing="4"/>
+                    </StackPanel>
+                </Border>
+
+                <Grid ColumnDefinitions="*,14,*">
+                    <Border Classes="card">
+                        <StackPanel>
+                            <TextBlock Text="SAY SOMETHING" Classes="heading"/>
+                            <TextBox x:Name="SayBox" MaxLength="80" Watermark="Lunch time!" KeyDown="SayBox_KeyDown"/>
+                            <Button Content="Send to pet" Classes="pill" Click="Say_Click" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Classes="card">
+                        <StackPanel>
+                            <TextBlock Text="NETWORK" Classes="heading"/>
+                            <SelectableTextBlock x:Name="NetworkText" TextWrapping="Wrap" FontSize="12.5"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Border Classes="card">
+                    <StackPanel>
+                        <TextBlock Text="ACTIVITY" Classes="heading"/>
+                        <TextBlock x:Name="LogText" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}" FontFamily="Menlo, monospace"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

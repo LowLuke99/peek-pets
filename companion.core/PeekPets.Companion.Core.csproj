@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Everything the companion does that isn't UI: server, pairing, sensors, facts, powers.
+       Shared by the Windows app (companion/) and the Mac app (companion.mac/).
+       OS-specific pieces live in Platform/Windows and Platform/Mac; PlatformServices picks one. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>PeekPets.Companion.Core</AssemblyName>
+    <RootNamespace>PeekPets.Companion</RootNamespace>
+    <Version>0.2.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PeekPets.Companion" />
+    <InternalsVisibleTo Include="PeekPets.Companion.Mac" />
+    <InternalsVisibleTo Include="PeekPets.Companion.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -14,7 +14,7 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        var args = ParseArgs(e.Args);
+        var args = CompanionArgs.Parse(e.Args);
 
         var settings = CompanionSettings.Load(args.GetValueOrDefault("settings"));
         if (args.TryGetValue("port", out var portText) && int.TryParse(portText, out var port)) settings.Port = port;
@@ -28,8 +28,8 @@ public partial class App : Application
 
         var clock = Stopwatch.StartNew();
         var pairing = new Pairing(settings, fixedCode: fixedCode);
-        var sampler = new CursorSampler(clock);
-        var facts = new FactHub(settings.IsShared);
+        var sampler = new CursorSampler(clock, new WindowsCursorSource());
+        var facts = new FactHub(settings.IsShared, WindowsFacts.All());
         LocalCertificates? certs = args.ContainsKey("no-https") ? null : new LocalCertificates(args.GetValueOrDefault("cert-dir"));
 
         // Test switches: --dry-run-actions records instead of acting; --auto-approve skips the
@@ -81,17 +81,5 @@ public partial class App : Application
     {
         public IApprovalPrompt? Inner { get; set; }
         public Task<bool> AskAsync(string d, string p, string c) => Inner?.AskAsync(d, p, c) ?? Task.FromResult(false);
-    }
-
-    private static Dictionary<string, string> ParseArgs(string[] args)
-    {
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < args.Length; i++)
-        {
-            if (!args[i].StartsWith("--")) continue;
-            var key = args[i][2..];
-            map[key] = i + 1 < args.Length && !args[i + 1].StartsWith("--") ? args[++i] : "true";
-        }
-        return map;
     }
 }

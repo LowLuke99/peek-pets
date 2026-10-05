@@ -17,10 +17,10 @@ public sealed class FactHub : IDisposable
     public IReadOnlyList<IFactProvider> Providers { get; }
     public event Action<string, object>? Changed;
 
-    public FactHub(Func<string, bool> isShared, IEnumerable<IFactProvider>? providers = null)
+    public FactHub(Func<string, bool> isShared, IEnumerable<IFactProvider> providers)
     {
         _isShared = isShared;
-        Providers = (providers ?? [new BatteryFact(), new ActivityFact(), new SystemLoadFact()]).ToList();
+        Providers = providers.ToList();
         _timer = new Timer(_ => Tick(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace PeekPets.Companion.Server;
 
@@ -9,9 +10,10 @@ namespace PeekPets.Companion.Server;
 /// instead of asking for an IP address. The TXT record carries the address and port,
 /// plus the protocol version. Nothing secret: pairing still needs the code on screen.
 /// </summary>
-public sealed class MdnsAdvertiser : IDisposable
+[SupportedOSPlatform("windows")]
+public sealed class MdnsAdvertiser : IServiceAdvertiser
 {
-    public const string ServiceType = "_peekpets._tcp.local";
+    private const string ServiceType = Bonjour.ServiceType + ".local";
     private IntPtr _instance;
     private IntPtr _cancel;
     private GCHandle _callbackHandle;
@@ -21,25 +23,14 @@ public sealed class MdnsAdvertiser : IDisposable
     public bool Registered { get; private set; }
     public string? Error { get; private set; }
 
-    /// <summary>TXT values (what the phone reads). Pure so it can be tested.</summary>
-    public static Dictionary<string, string> TxtRecord(string pcName, IEnumerable<IPAddress> addresses, int port, int securePort, int protocol, string version) => new()
-    {
-        ["pc"] = pcName.Length > 40 ? pcName[..40] : pcName,
-        ["ip"] = string.Join(",", addresses.Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork).Take(3)),
-        ["port"] = port.ToString(),
-        ["sport"] = securePort > 0 ? securePort.ToString() : "",
-        ["proto"] = protocol.ToString(),
-        ["ver"] = version,
-    };
-
     public bool Start(string pcName, IReadOnlyList<IPAddress> addresses, int port, Dictionary<string, string> txt)
     {
         try
         {
             var ipv4 = addresses.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
             uint ip = ipv4 is null ? 0 : BitConverter.ToUInt32(ipv4.GetAddressBytes(), 0);
-            var host = $"{Sanitize(pcName)}.local";
-            var instanceName = $"{Sanitize(pcName)}.{ServiceType}";
+            var host = $"{Bonjour.Sanitize(pcName)}.local";
+            var instanceName = $"{Bonjour.Sanitize(pcName)}.{ServiceType}";
             var keys = txt.Keys.Select(Str).ToArray();
             var values = txt.Values.Select(Str).ToArray();
             var ipPtr = Marshal.AllocHGlobal(4);
@@ -79,12 +70,6 @@ public sealed class MdnsAdvertiser : IDisposable
             _strings.Add(p);
             return p;
         }
-    }
-
-    private static string Sanitize(string name)
-    {
-        var clean = new string(name.Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
-        return clean.Length == 0 ? "PeekPets-PC" : clean.Length > 40 ? clean[..40] : clean;
     }
 
     public void Dispose()
